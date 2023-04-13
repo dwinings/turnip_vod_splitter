@@ -1,4 +1,5 @@
-﻿using System;
+﻿using LibVLCSharp.Shared;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -9,25 +10,10 @@ using System.Threading.Tasks;
 
 namespace TurnipVodSplitter {
     public class MainWindowViewModel : INotifyPropertyChanged {
-        private TimeSpan _mediaPosition = TimeSpan.Zero;
+        public static LibVLC libVlc = new LibVLC();
+        private VlcMediaPlayer _vlcMediaPlayer = new VlcMediaPlayer();
+        public VlcMediaPlayer vlcMediaPlayer { get { return _vlcMediaPlayer; } }
 
-        public TimeSpan mediaPosition {
-            get => this._mediaPosition;
-            set {
-                this._mediaPosition = value;
-                OnPropertyChanged("mediaPosition");
-                OnPropertyChanged("mediaPositionSeconds");
-                OnPropertyChanged("mediaPositionStr");
-            }
-        }
-
-
-        public Double mediaPositionSeconds {
-            get => (int)_mediaPosition.TotalSeconds;
-            set => this.mediaPosition = TimeSpan.FromSeconds(value);
-        }
-
-        public String mediaPositionStr => $"{mediaPosition.Hours:D2}:{mediaPosition.Minutes:D2}:{mediaPosition.Seconds:D2}";
 
         private ObservableCollection<SplitEntry> _splits;
         public ObservableCollection<SplitEntry> splits {
@@ -36,23 +22,6 @@ namespace TurnipVodSplitter {
                 this._splits = value;
                 OnPropertyChanged("splits");
             }
-        }
-
-        private TimeSpan _mediaTotalDuration = TimeSpan.Zero;
-
-        public TimeSpan mediaTotalDuration {
-            get => this._mediaTotalDuration;
-            set {
-                this._mediaTotalDuration = value;
-                OnPropertyChanged("mediaTotalDuration");
-                OnPropertyChanged("mediaTotalDurationStr");
-                OnPropertyChanged("mediaTotalDurationSeconds");
-            }
-        }
-        public String mediaTotalDurationStr => $"{mediaPosition.Hours:D2}:{mediaPosition.Minutes:D2}:{mediaPosition.Seconds:D2}";
-        public Double mediaTotalDurationSeconds {
-            get => (int)_mediaTotalDuration.TotalSeconds;
-            set => this.mediaTotalDuration = TimeSpan.FromSeconds(value);
         }
 
         private String _mediaContentPath;
