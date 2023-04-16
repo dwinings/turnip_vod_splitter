@@ -122,6 +122,9 @@
     <Compile Include="SplitEntry.cs" />
     <Compile Include="TurnipExtensions.cs" />
     <Compile Include="VlcMediaPlayer.cs" />
+    <Compile Include="ConverterWindow.xaml.cs">
+      <DependentUpon>ConverterWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="WpfValueConverters.cs" />
     <Page Include="Downloader.xaml">
       <SubType>Designer</SubType>
@@ -139,6 +142,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="ConverterWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">

@@ -44,6 +44,7 @@ namespace TurnipVodSplitter {
             }
         }
 
+        #region User Input
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e) {
             if (e.Key == Key.Enter) {
                 onRecordSplitClick(sender, e);
@@ -69,23 +70,12 @@ namespace TurnipVodSplitter {
                 this.viewModel.mediaContentPath = openFileDialog.FileName;
                 this.viewModel.vlcMediaPlayer.MediaChanged += onMediaChanged;
                 this.IsEnabled = false;
-                this.vlcLoadingSpinner.Visibility = Visibility.Visible;
-                this.vlcLoadingSpinner.SpinDuration = 1;
 
                 this.Dispatcher.InvokeAsync(() => { this.viewModel.vlcMediaPlayer.Media = new Media(MainWindowViewModel.libVlc, uri); });
             }
 
             this.viewModel.splits.Clear();
-            this.tbFfmpegOutput.Text = "";
 
-        }
-
-        private void onMediaChanged(object sender, MediaPlayerMediaChangedEventArgs e) {
-            this.IsEnabled = true;
-            this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
-            this.viewModel.vlcMediaPlayer.Play();
-            this.vlcLoadingSpinner.Visibility = Visibility.Hidden;
-            this.vlcLoadingSpinner.SpinDuration = 0;
         }
 
 
@@ -104,8 +94,7 @@ namespace TurnipVodSplitter {
             if (_currentSplit == null) {
                 newSplit = new SplitEntry {
                     splitStart = TimeSpan.Zero,
-                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time),
-                    context = this.viewModel,
+                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
                 };
 
             } else {
@@ -119,6 +108,97 @@ namespace TurnipVodSplitter {
             _currentSplit = newSplit;
             this.viewModel.splits.Add(newSplit);
         }
+
+        private void onChooseOutputDirClick(object sender, RoutedEventArgs e) {
+            using (var dialog = new FolderBrowserDialog()) {
+                dialog.ShowNewFolderButton = true;
+                DialogResult result = dialog.ShowDialog();
+
+                if (result == System.Windows.Forms.DialogResult.OK) {
+                    this.viewModel.outputDirectory = dialog.SelectedPath;
+                }
+            }
+        }
+
+        private void onBeginConvertClick(object sender, RoutedEventArgs e) {
+            if (this.viewModel.vlcMediaPlayer.CanPause) {
+                this.viewModel.vlcMediaPlayer.Pause();
+            }
+
+            var converterWindow = new ConverterWindow(
+                this.viewModel.ffmpegPath,
+                this.viewModel.splits,
+                this.viewModel.mediaContentPath,
+                this.viewModel.outputDirectory,
+                this.viewModel.eventName
+            );
+
+            this.IsEnabled = false;
+            converterWindow.ShowDialog();
+            this.IsEnabled = true;
+        }
+
+        #endregion
+
+        private void onMediaChanged(object sender, MediaPlayerMediaChangedEventArgs e) {
+            this.IsEnabled = true;
+            this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
+            this.viewModel.vlcMediaPlayer.Volume = 0;
+            this.viewModel.vlcMediaPlayer.Play();
+        }
+
+
+        private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs propertyChangedEventArgs) {
+            // Maybe we should enable the split video button.
+            if (this.viewModel.outputDirectory == null) {
+                return;
+            }
+
+            if (this.viewModel.mediaContentPath == null) {
+                return;
+            }
+
+            if (this.viewModel.splits.Count == 0) {
+                return;
+            }
+
+            if (this.viewModel.ffmpegPath == null) {
+                return;
+            }
+
+            this.btnBeginConvert.IsEnabled = true;
+        }
+
+        private void onLoaded(object sender, RoutedEventArgs e) {
+            if (!File.Exists(this.viewModel.ffmpegPath)) {
+                var downloader = new Downloader();
+                downloader.ShowDialog();
+            }
+
+            if (!File.Exists(this.viewModel.ffmpegPath)) {
+                MessageBox.Show($"Could not find ffmpeg @ {this.viewModel.ffmpegPath}\n. If the downloader isn't working, please download ffmpeg yourself and place ffmpeg.exe inside %LOCALAPPDATA%.",
+                    "Turnip Vod Downloader", MessageBoxButton.OK, MessageBoxImage.Error);
+                this.Close();
+            }
+        }
+
+
+        #region Video Scrubbing jank
+
+        class ScrubAttempt : IFormattable {
+            public TimeSpan position;
+            public DateTime asOf;
+
+            public ScrubAttempt(long newTs) {
+                this.position = TimeSpan.FromMilliseconds(newTs);
+                this.asOf = DateTime.Now;
+            }
+
+            public string ToString(string format, IFormatProvider formatProvider) {
+                return $"Scrubbed @ {asOf}: {position}";
+            }
+        }
+
 
         private void onSeekCompleted(object sender, EventArgs e) {
             this.Dispatcher.Invoke(() => {
@@ -146,109 +226,6 @@ namespace TurnipVodSplitter {
 
                 this.viewModel.vlcMediaPlayer.PositionChanged += onSeekCompleted;
                 this.viewModel.vlcMediaPlayer.SeekTo(pos);
-            }
-        }
-        private void onChooseOutputDirClick(object sender, RoutedEventArgs e) {
-            using (var dialog = new FolderBrowserDialog()) {
-                dialog.ShowNewFolderButton = true;
-                DialogResult result = dialog.ShowDialog();
-
-                if (result == System.Windows.Forms.DialogResult.OK) {
-                    this.viewModel.outputDirectory = dialog.SelectedPath;
-                }
-            }
-        }
-
-        private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs propertyChangedEventArgs) {
-            // Maybe we should enable the split video button.
-            if (this.viewModel.outputDirectory == null) {
-                return;
-            }
-
-            if (this.viewModel.mediaContentPath == null) {
-                return;
-            }
-
-            if (this.viewModel.splits.Count == 0) {
-                return;
-            }
-
-            if (this.viewModel.ffmpegPath == null) {
-                return;
-            }
-
-            this.btnEngageSplit.IsEnabled = true;
-        }
-
-        private void onEngageSplitClick(object sender, RoutedEventArgs e) {
-            this.tbFfmpegOutput.Text = "";
-
-            foreach (var split in this.viewModel.splits) {
-                var extension = Path.GetExtension(this.viewModel.mediaContentPath);
-                var outputFile = Path.Combine(this.viewModel.outputDirectory, $"[{this.viewModel.eventName}]{split.splitName}{extension}");
-
-                string args = $"-hide_banner -loglevel info -nostats -y -i \"{this.viewModel.mediaContentPath}\" {split.ffmpegArgsForSplit} \"{outputFile}\"";
-
-                ProcessStartInfo invokeDefinition = new ProcessStartInfo {
-                    FileName = this.viewModel.ffmpegPath,
-                    WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    Arguments = args
-                };
-
-
-                Process proc = new Process {
-                    StartInfo = invokeDefinition,
-                    EnableRaisingEvents = true,
-                };
-
-                proc.OutputDataReceived += processFfmpegProcessOutput;
-                proc.ErrorDataReceived += processFfmpegProcessOutput;
-                proc.Start();
-                proc.BeginOutputReadLine();
-                proc.BeginErrorReadLine();
-
-                this.outstandingProcs += 1;
-                this.tbFfmpegOutput.AppendText($"Started [{this.viewModel.ffmpegPath} {args}] @ PID {proc.Id}\n");
-                this.svFfmpegOutput.ScrollToEnd();
-
-                proc.Exited += (o, e) => {
-                    this.Dispatcher.Invoke(() => {
-                        this.outstandingProcs -= 1;
-                        var innerProc = o as Process;
-                        this.tbFfmpegOutput.AppendText($"\t[{innerProc.Id:D7}] Has exited with code {innerProc.ExitCode}\n");
-                        this.svFfmpegOutput.ScrollToEnd();
-                        if (this.outstandingProcs == 0) {
-                            MessageBox.Show("All done!", "Turnip Video Splitter", MessageBoxButton.OK, MessageBoxImage.Information);
-                        }
-                    });
-                };
-            }
-        }
-
-        private void processFfmpegProcessOutput(object sender, DataReceivedEventArgs dataReceivedEventArgs) {
-            this.Dispatcher.Invoke(() => {
-                var proc = sender as Process;
-                this.tbFfmpegOutput.AppendText($"\t[{proc.Id:D7}] {dataReceivedEventArgs.Data}\n");
-                this.svFfmpegOutput.ScrollToEnd();
-            });
-        }
-
-        private int outstandingProcs = 0;
-
-        private void onLoaded(object sender, RoutedEventArgs e) {
-            if (!File.Exists(this.viewModel.ffmpegPath)) {
-                var downloader = new Downloader();
-                downloader.ShowDialog();
-            }
-
-            if (!File.Exists(this.viewModel.ffmpegPath)) {
-                MessageBox.Show($"Could not find ffmpeg @ {this.viewModel.ffmpegPath}\n. If the downloader isn't working, please download ffmpeg yourself and place ffmpeg.exe inside %LOCALAPPDATA%.",
-                    "Turnip Vod Downloader", MessageBoxButton.OK, MessageBoxImage.Error);
-                this.Close();
             }
         }
 
@@ -292,20 +269,6 @@ namespace TurnipVodSplitter {
         private void onVideoScrubberMouseUp(object sender, MouseButtonEventArgs e) {
             endVideoScrubberDrag();
         }
-
-    }
-
-    class ScrubAttempt: IFormattable {
-        public TimeSpan position;
-        public DateTime asOf;
-
-        public ScrubAttempt(long newTs) {
-            this.position = TimeSpan.FromMilliseconds(newTs);
-            this.asOf = DateTime.Now;
-        }
-
-        public string ToString(string format, IFormatProvider formatProvider) {
-            return $"Scrubbed @ {asOf}: {position}";
-        }
+        #endregion
     }
 }

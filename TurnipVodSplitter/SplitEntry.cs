@@ -11,10 +11,8 @@ namespace TurnipVodSplitter {
     public class SplitEntry: INotifyPropertyChanged{
         private TimeSpan _splitStart;
         private TimeSpan _splitEnd;
-        private string _splitName = "";
         private string _player1;
         private string _player2 = "";
-        private string _eventName = "";
 
         public TimeSpan splitStart {
             get => _splitStart;
@@ -78,6 +76,5 @@ namespace TurnipVodSplitter {
         }
 
         public string ffmpegArgsForSplit => $"-vcodec copy -acodec copy -ss {this.splitStartStr} -to {this.splitEndStr}";
-        public MainWindowViewModel context { get; set; }
     }
 }

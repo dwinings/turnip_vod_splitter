@@ -146,7 +146,7 @@ namespace TurnipVodSplitter {
 
             try {
                 File.Delete(downloadPath);
-            } catch (Exception e) {
+            } catch (Exception) {
                 // Don't care even a little.
             }
         }

@@ -24,18 +24,20 @@
         <fa:ImageSourceConverter x:Key="ImageSourceConverter"></fa:ImageSourceConverter>
     </Window.Resources>
 
+    <!-- GridSplitter -->
     <Grid Margin="5,5,5,5" ShowGridLines="True">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="2*" />
+            <RowDefinition Height="3" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
             <RowDefinition Height="1*" />
             <RowDefinition Height="40" />
-            <RowDefinition Height="40" />
-            <RowDefinition Height="1*" />
-            <RowDefinition Height="40" />
-            <RowDefinition Height="30" />
-            <RowDefinition Height="1*" />
         </Grid.RowDefinitions>
-
         <DockPanel Grid.Row="0" Margin="0,5,0,5" LastChildFill="True">
             <Button DockPanel.Dock="Right" Name="btnOpenFile" Click="onOpenFileClick" Width="150" Margin="5,0,0,0">Pick Source VOD File</Button>
             <Label DockPanel.Dock="Left" Content="{Binding Path=mediaContentPath}" BorderBrush="Black"
@@ -45,7 +47,6 @@
         </DockPanel>
 
         <vlcwpf:VideoView Name="vlcVideoView" Grid.Row="1" MediaPlayer="{Binding vlcMediaPlayer}" />
-        <!--<MediaElement Grid.Row="1" Name="meVideoPlayer" ScrubbingEnabled="True" MediaOpened="MeVideoPlayer_MediaOpened" LoadedBehavior="Manual" /> -->
         <DockPanel Grid.Row="2" Margin="0,5,0,5">
             <Label Name="labelSeekPos" DockPanel.Dock="Left"
                    Content="{Binding Path=vlcMediaPlayer.Time, Mode=OneWay, Converter={StaticResource LongMsToTime}}" HorizontalAlignment="Left"
@@ -56,11 +57,12 @@
             </Button>
             <Button Name="btnPlay" DockPanel.Dock="Right" Click="onPlayClick" Padding="5" Margin="5,0,5,0"
                     HorizontalAlignment="Center" Width="35">
-                    <fa:FontAwesome Icon="{Binding Path=vlcMediaPlayer.IsPlaying, Converter={StaticResource PlayPauseFaIcon}}" />
-                            <!--ConverterParameter={Binding vlcMediaPlayer.IsPlaying, Converter={StaticResource PlayPauseFaIcon}} -->
+                    <fa:FontAwesome 
+                        Icon="{Binding Path=vlcMediaPlayer.IsPlaying, Converter={StaticResource PlayPauseFaIcon}}" />
             </Button>
             <Label Name="labelTotalDuration" DockPanel.Dock="Right"
-                   Content="{Binding Path=vlcMediaPlayer.Length, Mode=OneWay, Converter={StaticResource LongMsToTime}}" VerticalAlignment="Center" />
+                   Content="{Binding Path=vlcMediaPlayer.Length, Mode=OneWay, Converter={StaticResource LongMsToTime}}"
+                   VerticalAlignment="Center" />
             <Slider Name="sliderMedia"
                     FlowDirection="LeftToRight"
                     Minimum="0"
@@ -71,10 +73,20 @@
                     Thumb.DragCompleted="onVideoScrubberDragLeave"
                     VerticalAlignment="Center" />
         </DockPanel>
-        <!--Value="{Binding Path=vlcMediaPlayer.Position, Mode=OneWay, NotifyOnTargetUpdated=False}"-->
-        <!-- ValueChanged="SliderMedia_OnValueChanged" -->
+        </Grid>
 
-        <DockPanel Grid.Row="3">
+        <GridSplitter Grid.Row="1"
+            ResizeDirection="Rows"
+            HorizontalAlignment="Stretch"
+            Background="darkGray"/>
+
+        <Grid Grid.Row="2">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="1*" />
+            <RowDefinition Height="40" />
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0">
             <Label VerticalContentAlignment="Center">Event Name</Label>
             <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" Name="tbEventName" MaxLines="1"
                      TextWrapping="NoWrap" Margin="10,0" Width="200" Text="{Binding Path=eventName}"
@@ -82,7 +94,7 @@
             </TextBox>
         </DockPanel>
 
-        <DataGrid Grid.Row="4" Name="dgSplits" ItemsSource="{Binding splits}" AutoGenerateColumns="False"
+        <DataGrid Grid.Row="1" Name="dgSplits" ItemsSource="{Binding splits}" AutoGenerateColumns="False"
                   Margin="0,5,0,5">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding splitStartStr}" />
@@ -91,13 +103,12 @@
                 <DataGridTextColumn Header="Port 4" MinWidth="110" Binding="{Binding Path=player2}" />
             </DataGrid.Columns>
         </DataGrid>
-        <fa:ImageAwesome Name="vlcLoadingSpinner" Grid.Row="4" Icon="Cog" Visibility="Hidden" Margin="25" />
 
-        <DockPanel Grid.Row="5" LastChildFill="True" Margin="0,5,0,0">
+        <DockPanel Grid.Row="2" LastChildFill="True" Margin="0,5,0,0">
             <Label VerticalAlignment="Center">Output Directory</Label>
 
-            <Button Name="btnEngageSplit" DockPanel.Dock="Right" IsEnabled="False" Width="80" Margin="5,0,0,0"
-                    VerticalAlignment="Stretch" Click="onEngageSplitClick">
+            <Button Name="btnBeginConvert" DockPanel.Dock="Right" IsEnabled="False" Width="80" Margin="5,0,0,0"
+                    VerticalAlignment="Stretch" Click="onBeginConvertClick">
                 Split!
             </Button>
             <Button Name="btnChooseOutputDir" DockPanel.Dock="Right" IsEnabled="True" Width="40" Margin="5,0,0,0"
@@ -109,13 +120,6 @@
                      Text="{Binding Path=outputDirectory, Mode=OneWay}" Focusable="False"
                      VerticalContentAlignment="Center" />
         </DockPanel>
-
-        <Label Grid.Row="6"> Conversion Progress</Label>
-        <ScrollViewer Name="svFfmpegOutput" Grid.Row="7" HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
-            <TextBox TextWrapping="Wrap" Name="tbFfmpegOutput" FontFamily="Consolas" FontSize="16" BorderBrush="Black"
-                     BorderThickness="1" IsEnabled="False">
-            </TextBox>
-        </ScrollViewer>
+        </Grid>
     </Grid>
 </Window>
