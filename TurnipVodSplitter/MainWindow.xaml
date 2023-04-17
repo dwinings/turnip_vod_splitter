@@ -32,38 +32,98 @@
             <RowDefinition Height="1*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="40" />
-            <RowDefinition Height="1*" />
-            <RowDefinition Height="40" />
-        </Grid.RowDefinitions>
-        <DockPanel Grid.Row="0" Margin="0,5,0,5" LastChildFill="True">
-            <Button DockPanel.Dock="Right" Name="btnOpenFile" Click="onOpenFileClick" Width="150" Margin="5,0,0,0">Pick Source VOD File</Button>
-            <Label DockPanel.Dock="Left" Content="{Binding Path=mediaContentPath}" BorderBrush="Black"
+        <Grid Name="gridMediaPlayer" Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="45" />
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="45" />
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0" 
+                       Margin="0,5,0,5" 
+                       LastChildFill="True">
+                <Button Name="btnOpenFile"
+                        DockPanel.Dock="Right" 
+                        Click="onOpenFileClick"
+                        Width="40"
+                        Margin="5,0,0,0">
+                    <fa:FontAwesome Icon="FolderOpen" />
+                </Button>
+                <Label
+                    VerticalAlignment="Center"
+                    Margin="0,0,5,0">
+                    Source VOD
+                </Label>
+                <Label 
+                    DockPanel.Dock="Left"
+                    Content="{Binding Path=mediaContentPath}" 
+                    BorderBrush="Black"
                    BorderThickness="1">
-            </Label>
+                </Label>
+            </DockPanel>
 
-        </DockPanel>
+            <vlcwpf:VideoView Name="vlcVideoView" Grid.Row="1" MediaPlayer="{Binding vlcMediaPlayer}" />
+            <DockPanel Grid.Row="2" Margin="0,5,0,5">
+                <!-- Right side of the control bar -->
+                <StackPanel 
+                    DockPanel.Dock="Right"
+                    Orientation="Horizontal">
+                    <StackPanel.Resources>
+                        <Style TargetType="{x:Type Button}">
+                            <Setter Property="Margin" Value="2,0"></Setter>
+                        </Style>
+                    </StackPanel.Resources>
 
-        <vlcwpf:VideoView Name="vlcVideoView" Grid.Row="1" MediaPlayer="{Binding vlcMediaPlayer}" />
-        <DockPanel Grid.Row="2" Margin="0,5,0,5">
-            <Label Name="labelSeekPos" DockPanel.Dock="Left"
-                   Content="{Binding Path=vlcMediaPlayer.Time, Mode=OneWay, Converter={StaticResource LongMsToTime}}" HorizontalAlignment="Left"
+                    <Button Name="btnPlay" 
+                            Click="onPlayClick" 
+                            Margin="5,0,5,0"
+                            HorizontalAlignment="Center"
+                            ToolTip="Play/Pause"
+                            Width="35">
+                        <fa:FontAwesome 
+                            Icon="{Binding Path=vlcMediaPlayer.IsPlaying,
+                                           Converter={StaticResource PlayPauseFaIcon}}" />
+                    </Button>
+
+
+                    <Button Name="btnSplitBegin"
+                            Click="onBeginSplitClick"
+                            ToolTip="Begin Split"
+                            Width="35">
+                        <StackPanel Orientation="Horizontal">
+                            <fa:FontAwesome 
+                                Icon="ChevronLeft"
+                                VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Name="btnRecordSplit" 
+                            Click="onRecordSplitClick"
+                            Width="35">
+                        <fa:FontAwesome Icon="Scissors" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Name="btnSplitEnd"
+                            Width="35">
+                        <StackPanel Orientation="Horizontal">
+                            <fa:FontAwesome 
+                                Icon="ChevronRight"
+                                VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <Label Name="labelTotalDuration" DockPanel.Dock="Right"
+                   Content="{Binding Path=vlcMediaPlayer.Length, 
+                                     Mode=OneWay, 
+                                     Converter={StaticResource LongMsToTime}}"
                    VerticalAlignment="Center" />
-            <Button Name="btnRecordSplit" DockPanel.Dock="Right" Click="onRecordSplitClick" Padding="5"
-                    HorizontalAlignment="Center">
-                Split Here
-            </Button>
-            <Button Name="btnPlay" DockPanel.Dock="Right" Click="onPlayClick" Padding="5" Margin="5,0,5,0"
-                    HorizontalAlignment="Center" Width="35">
-                    <fa:FontAwesome 
-                        Icon="{Binding Path=vlcMediaPlayer.IsPlaying, Converter={StaticResource PlayPauseFaIcon}}" />
-            </Button>
-            <Label Name="labelTotalDuration" DockPanel.Dock="Right"
-                   Content="{Binding Path=vlcMediaPlayer.Length, Mode=OneWay, Converter={StaticResource LongMsToTime}}"
+
+                <!-- Left side of the control bar -->
+                <Label Name="labelSeekPos" DockPanel.Dock="Left"
+                   Content="{Binding Path=vlcMediaPlayer.Time, 
+                                     Mode=OneWay, 
+                                     Converter={StaticResource LongMsToTime}}"
+                   HorizontalAlignment="Left"
                    VerticalAlignment="Center" />
-            <Slider Name="sliderMedia"
+                <Slider Name="sliderMedia"
+                    DockPanel.Dock="Left"
                     FlowDirection="LeftToRight"
                     Minimum="0"
                     Maximum="1"
@@ -72,7 +132,7 @@
                     Thumb.DragStarted="onVideoScrubberDragStarted"
                     Thumb.DragCompleted="onVideoScrubberDragLeave"
                     VerticalAlignment="Center" />
-        </DockPanel>
+            </DockPanel>
         </Grid>
 
         <GridSplitter Grid.Row="1"
@@ -81,45 +141,60 @@
             Background="darkGray"/>
 
         <Grid Grid.Row="2">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="40" />
-            <RowDefinition Height="1*" />
-            <RowDefinition Height="40" />
-        </Grid.RowDefinitions>
-        <DockPanel Grid.Row="0">
-            <Label VerticalContentAlignment="Center">Event Name</Label>
-            <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" Name="tbEventName" MaxLines="1"
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40" />
+                <RowDefinition Height="1*" />
+                <RowDefinition Height="40" />
+            </Grid.RowDefinitions>
+            <DockPanel Grid.Row="0">
+                <Label VerticalContentAlignment="Center">Event Name</Label>
+                <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" Name="tbEventName" MaxLines="1"
                      TextWrapping="NoWrap" Margin="10,0" Width="200" Text="{Binding Path=eventName}"
                      HorizontalAlignment="Left">
-            </TextBox>
-        </DockPanel>
+                </TextBox>
+            </DockPanel>
 
-        <DataGrid Grid.Row="1" Name="dgSplits" ItemsSource="{Binding splits}" AutoGenerateColumns="False"
+            <DataGrid Grid.Row="1" Name="dgSplits" ItemsSource="{Binding splits}" AutoGenerateColumns="False"
                   Margin="0,5,0,5">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding splitStartStr}" />
-                <DataGridTextColumn Header="Split End" MinWidth="110" Binding="{Binding splitEndStr}" />
-                <DataGridTextColumn Header="Port 1" MinWidth="110" Binding="{Binding Path=player1}" />
-                <DataGridTextColumn Header="Port 4" MinWidth="110" Binding="{Binding Path=player2}" />
-            </DataGrid.Columns>
-        </DataGrid>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding splitStartStr}" />
+                    <DataGridTextColumn Header="Split End" MinWidth="110" Binding="{Binding splitEndStr}" />
+                    <DataGridTextColumn Header="Port 1" MinWidth="110" Binding="{Binding Path=player1}" />
+                    <DataGridTextColumn Header="Port 4" MinWidth="110" Binding="{Binding Path=player2}" />
+                </DataGrid.Columns>
+            </DataGrid>
 
-        <DockPanel Grid.Row="2" LastChildFill="True" Margin="0,5,0,0">
-            <Label VerticalAlignment="Center">Output Directory</Label>
+            <DockPanel Grid.Row="2" LastChildFill="True" Margin="0,5,0,0">
+                <Label
+                    Margin="0,0,3,0"
+                    VerticalAlignment="Center">
+                    Output Directory
+                </Label>
 
-            <Button Name="btnBeginConvert" DockPanel.Dock="Right" IsEnabled="False" Width="80" Margin="5,0,0,0"
-                    VerticalAlignment="Stretch" Click="onBeginConvertClick">
-                Split!
-            </Button>
-            <Button Name="btnChooseOutputDir" DockPanel.Dock="Right" IsEnabled="True" Width="40" Margin="5,0,0,0"
+                <Button Name="btnBeginConvert" 
+                        DockPanel.Dock="Right" 
+                        IsEnabled="False"
+                        Width="80"
+                        Margin="5,0,0,0"
+                        VerticalAlignment="Stretch" 
+                        Click="onBeginConvertClick">
+                    <StackPanel Orientation="Horizontal">
+                        <fa:FontAwesome Icon="Scissors"
+                                        VerticalAlignment="Center"/>
+                        <TextBlock Margin="5,0,0,0">
+                            Split
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
+                <Button Name="btnChooseOutputDir" DockPanel.Dock="Right" IsEnabled="True" Width="40" Margin="5,0,0,0"
                     VerticalAlignment="Stretch" Click="onChooseOutputDirClick">
-                ...
-            </Button>
-            <TextBox Name="tbOutputDir" VerticalAlignment="Stretch" IsReadOnly="True" IsTabStop="False"
+                    <fa:FontAwesome Icon="FolderOpen" />
+                </Button>
+                <TextBox Name="tbOutputDir" VerticalAlignment="Stretch" IsReadOnly="True" IsTabStop="False"
                      IsManipulationEnabled="False" BorderBrush="Black" BorderThickness="1" Padding="5,0,0,0"
                      Text="{Binding Path=outputDirectory, Mode=OneWay}" Focusable="False"
                      VerticalContentAlignment="Center" />
-        </DockPanel>
+            </DockPanel>
         </Grid>
     </Grid>
 </Window>

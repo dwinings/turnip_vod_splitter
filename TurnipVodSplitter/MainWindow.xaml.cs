@@ -270,5 +270,13 @@ namespace TurnipVodSplitter {
             endVideoScrubberDrag();
         }
         #endregion
+
+        private void onBeginSplitClick(object sender, RoutedEventArgs e) {
+            throw new NotImplementedException();
+        }
+
+        private void onEndSplitClick(object sender, RoutedEventArgs e) {
+            throw new NotImplementedException();
+        }
     }
 }
