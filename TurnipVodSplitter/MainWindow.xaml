@@ -44,6 +44,7 @@
                 <Button Name="btnOpenFile"
                         DockPanel.Dock="Right" 
                         Click="onOpenFileClick"
+                        ToolTip="Open source VOD"
                         Width="40"
                         Margin="5,0,0,0">
                     <fa:FontAwesome Icon="FolderOpen" />
@@ -97,16 +98,9 @@
                     </Button>
                     <Button Name="btnRecordSplit" 
                             Click="onRecordSplitClick"
+                            ToolTip="Automatic Split (smart alternate start/end)"
                             Width="35">
-                        <fa:FontAwesome Icon="Scissors" VerticalAlignment="Center" />
-                    </Button>
-                    <Button Name="btnSplitEnd"
-                            Width="35">
-                        <StackPanel Orientation="Horizontal">
-                            <fa:FontAwesome 
-                                Icon="ChevronRight"
-                                VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <fa:FontAwesome Icon="ChevronRight" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
                 <Label Name="labelTotalDuration" DockPanel.Dock="Right"

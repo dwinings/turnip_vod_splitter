@@ -22,7 +22,7 @@ namespace TurnipVodSplitter {
         bool _isPaused = true;
         private ScrubAttempt _trynaScrub = null;
         private SplitEntry _currentSplit = null;
-        private DispatcherTimer dispatcher = null;
+        private readonly DispatcherTimer _timer = null;
 
         private MainWindowViewModel viewModel => this.DataContext as MainWindowViewModel;
 
@@ -36,11 +36,24 @@ namespace TurnipVodSplitter {
             string currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
             this.viewModel.ffmpegPath = Downloader.FullPath;
 
-            if (dispatcher == null) {
-                dispatcher = new DispatcherTimer();
-                dispatcher.Tick += (o, e) => this.Dispatcher.Invoke(() => processDeferredScrubTick(o, e));
-                dispatcher.Interval = new TimeSpan(0, 0, 0, 0, 1000);
-                dispatcher.Start();
+            if (_timer == null) {
+                _timer = new DispatcherTimer();
+                _timer.Tick += (o, e) => this.Dispatcher.Invoke(() => processDeferredScrubTick(o, e));
+                _timer.Interval = new TimeSpan(0, 0, 0, 0, 300);
+                _timer.Start();
+            }
+        }
+
+        private void onLoaded(object sender, RoutedEventArgs e) {
+            if (!File.Exists(this.viewModel.ffmpegPath)) {
+                var downloader = new Downloader();
+                downloader.ShowDialog();
+            }
+
+            if (!File.Exists(this.viewModel.ffmpegPath)) {
+                MessageBox.Show($"Could not find ffmpeg @ {this.viewModel.ffmpegPath}\n. If the downloader isn't working, please download ffmpeg yourself and place ffmpeg.exe inside %LOCALAPPDATA%.",
+                    "Turnip Vod Downloader", MessageBoxButton.OK, MessageBoxImage.Error);
+                this.Close();
             }
         }
 
@@ -88,27 +101,6 @@ namespace TurnipVodSplitter {
 
             this._isPaused = !this._isPaused;
         }
-
-        private void onRecordSplitClick(object sender, RoutedEventArgs e) {
-            SplitEntry newSplit;
-            if (_currentSplit == null) {
-                newSplit = new SplitEntry {
-                    splitStart = TimeSpan.Zero,
-                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
-                };
-
-            } else {
-                newSplit = new SplitEntry {
-                    splitStart = this._currentSplit.splitEnd,
-                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time),
-                };
-
-            }
-
-            _currentSplit = newSplit;
-            this.viewModel.splits.Add(newSplit);
-        }
-
         private void onChooseOutputDirClick(object sender, RoutedEventArgs e) {
             using (var dialog = new FolderBrowserDialog()) {
                 dialog.ShowNewFolderButton = true;
@@ -167,19 +159,6 @@ namespace TurnipVodSplitter {
             }
 
             this.btnBeginConvert.IsEnabled = true;
-        }
-
-        private void onLoaded(object sender, RoutedEventArgs e) {
-            if (!File.Exists(this.viewModel.ffmpegPath)) {
-                var downloader = new Downloader();
-                downloader.ShowDialog();
-            }
-
-            if (!File.Exists(this.viewModel.ffmpegPath)) {
-                MessageBox.Show($"Could not find ffmpeg @ {this.viewModel.ffmpegPath}\n. If the downloader isn't working, please download ffmpeg yourself and place ffmpeg.exe inside %LOCALAPPDATA%.",
-                    "Turnip Vod Downloader", MessageBoxButton.OK, MessageBoxImage.Error);
-                this.Close();
-            }
         }
 
 
@@ -271,12 +250,43 @@ namespace TurnipVodSplitter {
         }
         #endregion
 
-        private void onBeginSplitClick(object sender, RoutedEventArgs e) {
-            throw new NotImplementedException();
+        #region Split Recording
+
+        private SplitEntry newSplitAtCurrentTime() {
+                return new SplitEntry {
+                    splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time),
+                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
+                };
         }
 
-        private void onEndSplitClick(object sender, RoutedEventArgs e) {
-            throw new NotImplementedException();
+        private void onRecordSplitClick(object sender, RoutedEventArgs e) {
+            SplitEntry newSplit;
+            if (_currentSplit == null) {
+                newSplit = new SplitEntry {
+                    splitStart = TimeSpan.Zero,
+                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
+                };
+
+            } else {
+                newSplit = new SplitEntry {
+                    splitStart = this._currentSplit.splitEnd,
+                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time),
+                };
+
+            }
+
+            _currentSplit = newSplit;
+            this.viewModel.splits.Add(newSplit);
         }
+
+        private void onBeginSplitClick(object sender, RoutedEventArgs e) {
+            if (_currentSplit == null) {
+                _currentSplit = newSplitAtCurrentTime();
+            } else {
+                _currentSplit.splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
+            }
+        }
+
+        #endregion
     }
 }
