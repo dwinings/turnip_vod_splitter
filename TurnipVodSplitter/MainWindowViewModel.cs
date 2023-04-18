@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using TurnipVodSplitter.Properties;
 
 namespace TurnipVodSplitter {
     public class MainWindowViewModel : INotifyPropertyChanged {
@@ -30,6 +31,8 @@ namespace TurnipVodSplitter {
             get => this._mediaContentPath;
             set {
                 this._mediaContentPath = value;
+                Settings.Default.lastVodLoaded = _mediaContentPath;
+                Settings.Default.Save();
                 OnPropertyChanged("mediaContentPath");
 
             }
@@ -41,6 +44,8 @@ namespace TurnipVodSplitter {
             set {
                 if (value == _outputDirectory) return;
                 _outputDirectory = value;
+                Settings.Default.lastOutputDirectory = _outputDirectory;
+                Settings.Default.Save();
                 OnPropertyChanged("outputDirectory");
             }
         }

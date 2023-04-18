@@ -4,6 +4,7 @@ using LibVLCSharp.WPF;
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -11,6 +12,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Threading;
+using TurnipVodSplitter.Properties;
 using DragEventArgs = System.Windows.DragEventArgs;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
@@ -28,6 +30,8 @@ namespace TurnipVodSplitter {
 
         public MainWindow() {
             InitializeComponent();
+            this.viewModel.outputDirectory = Properties.Settings.Default.lastOutputDirectory ?? "";
+
             this.viewModel.splits = new ObservableCollection<SplitEntry>();
             this.viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
             this.viewModel.vlcMediaPlayer.EnableHardwareDecoding = true;
@@ -60,7 +64,7 @@ namespace TurnipVodSplitter {
         #region User Input
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e) {
             if (e.Key == Key.Enter) {
-                onRecordSplitClick(sender, e);
+                onEndSplitClick(sender, e);
                 e.Handled = true;
             }
 
@@ -80,15 +84,16 @@ namespace TurnipVodSplitter {
             if (openFileDialog.ShowDialog() == true) {
                 System.Uri uri = null;
                 System.Uri.TryCreate(openFileDialog.FileName, UriKind.Absolute, out uri);
-                this.viewModel.mediaContentPath = openFileDialog.FileName;
-                this.viewModel.vlcMediaPlayer.MediaChanged += onMediaChanged;
-                this.IsEnabled = false;
-
-                this.Dispatcher.InvokeAsync(() => { this.viewModel.vlcMediaPlayer.Media = new Media(MainWindowViewModel.libVlc, uri); });
+                loadVodFile(uri);
             }
+        }
 
+        private void loadVodFile(System.Uri uri) {
+            this.viewModel.mediaContentPath = Uri.UnescapeDataString(uri.AbsolutePath);
+            this.viewModel.vlcMediaPlayer.MediaChanged += onMediaChanged;
+            this.IsEnabled = false;
+            this.viewModel.vlcMediaPlayer.Media = new Media(MainWindowViewModel.libVlc, uri);
             this.viewModel.splits.Clear();
-
         }
 
 
@@ -102,13 +107,16 @@ namespace TurnipVodSplitter {
             this._isPaused = !this._isPaused;
         }
         private void onChooseOutputDirClick(object sender, RoutedEventArgs e) {
-            using (var dialog = new FolderBrowserDialog()) {
-                dialog.ShowNewFolderButton = true;
-                DialogResult result = dialog.ShowDialog();
+            var startPath = Properties.Settings.Default.lastOutputDirectory ?? "";
+            using var dialog = new FolderBrowserDialog() {SelectedPath = startPath};
 
-                if (result == System.Windows.Forms.DialogResult.OK) {
-                    this.viewModel.outputDirectory = dialog.SelectedPath;
-                }
+            dialog.ShowNewFolderButton = true;
+            DialogResult result = dialog.ShowDialog();
+
+            if (result == System.Windows.Forms.DialogResult.OK) {
+                this.viewModel.outputDirectory = dialog.SelectedPath;
+                Properties.Settings.Default.lastOutputDirectory = dialog.SelectedPath;
+                Properties.Settings.Default.Save();
             }
         }
 
@@ -137,6 +145,7 @@ namespace TurnipVodSplitter {
             this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
             this.viewModel.vlcMediaPlayer.Volume = 0;
             this.viewModel.vlcMediaPlayer.Play();
+            this._isPaused = false;
         }
 
 
@@ -259,7 +268,7 @@ namespace TurnipVodSplitter {
                 };
         }
 
-        private void onRecordSplitClick(object sender, RoutedEventArgs e) {
+        private void onEndSplitClick(object sender, RoutedEventArgs e) {
             SplitEntry newSplit;
             if (_currentSplit == null) {
                 newSplit = new SplitEntry {

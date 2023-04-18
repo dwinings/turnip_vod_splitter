@@ -10,7 +10,7 @@ using System.Windows;
 [assembly: AssemblyTitle("TurnipVodSplitter")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Turnip VOD Splitter")]
 [assembly: AssemblyProduct("TurnipVodSplitter")]
 [assembly: AssemblyCopyright("Copyright ©  2023")]
 [assembly: AssemblyTrademark("")]

@@ -58,11 +58,12 @@
                     DockPanel.Dock="Left"
                     Content="{Binding Path=mediaContentPath}" 
                     BorderBrush="Black"
-                   BorderThickness="1">
+                    VerticalContentAlignment="Center"
+                    BorderThickness="1">
                 </Label>
             </DockPanel>
 
-            <vlcwpf:VideoView Name="vlcVideoView" Grid.Row="1" MediaPlayer="{Binding vlcMediaPlayer}" />
+            <vlcwpf:VideoView Name="vlcVideoView" Grid.Row="1" MediaPlayer="{Binding vlcMediaPlayer}" Background="Black" />
             <DockPanel Grid.Row="2" Margin="0,5,0,5">
                 <!-- Right side of the control bar -->
                 <StackPanel 
@@ -88,7 +89,7 @@
 
                     <Button Name="btnSplitBegin"
                             Click="onBeginSplitClick"
-                            ToolTip="Begin Split"
+                            ToolTip="Set beginning of current split"
                             Width="35">
                         <StackPanel Orientation="Horizontal">
                             <fa:FontAwesome 
@@ -96,9 +97,9 @@
                                 VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Name="btnRecordSplit" 
-                            Click="onRecordSplitClick"
-                            ToolTip="Automatic Split (smart alternate start/end)"
+                    <Button Name="btnEndSplit" 
+                            Click="onEndSplitClick"
+                            ToolTip="Set end of current split"
                             Width="35">
                         <fa:FontAwesome Icon="ChevronRight" VerticalAlignment="Center" />
                     </Button>
