@@ -87,6 +87,9 @@
     <Reference Include="LibVLCSharp.WPF, Version=3.7.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\LibVLCSharp.WPF.3.7.0\lib\net461\LibVLCSharp.WPF.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Xaml.Behaviors, Version=1.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\packages\Microsoft.Xaml.Behaviors.Wpf.1.1.39\lib\net45\Microsoft.Xaml.Behaviors.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
@@ -124,6 +127,9 @@
     </Compile>
     <Compile Include="MainWindowViewModel.cs" />
     <Compile Include="SplitEntry.cs" />
+    <Compile Include="TabTester.xaml.cs">
+      <DependentUpon>TabTester.xaml</DependentUpon>
+    </Compile>
     <Compile Include="TurnipExtensions.cs" />
     <Compile Include="VlcMediaPlayer.cs" />
     <Compile Include="ConverterWindow.xaml.cs">
@@ -147,6 +153,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="ConverterWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="TabTester.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -196,23 +206,26 @@
     <VlcWindowsX64IncludeFiles Include="libvlccore.dll">
     </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\codec\%2A">
-	</VlcWindowsX64IncludeFiles>
+    </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\demux\%2A">
-	</VlcWindowsX64IncludeFiles>
+    </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\audio_output\libdirectsound_plugin.dll">
-	</VlcWindowsX64IncludeFiles>
+    </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\video_output\libdirect3d%2A">
-	</VlcWindowsX64IncludeFiles>
+    </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\video_output\libdrawable_plugin.dll">
-	</VlcWindowsX64IncludeFiles>
+    </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\video_output\libvmem_plugin.dll">
-	</VlcWindowsX64IncludeFiles>
+    </VlcWindowsX64IncludeFiles>
     <VlcWindowsX64IncludeFiles Include="plugins\access\libfilesystem_plugin.dll">
-	</VlcWindowsX64IncludeFiles>
-
-	<VlcWindowsX86IncludeFiles Include="@(VlcWindowsX64IncludeFiles)">
-	</VlcWindowsX86IncludeFiles>
-</ItemGroup>
+    </VlcWindowsX64IncludeFiles>
+    <VlcWindowsX86IncludeFiles Include="@(VlcWindowsX64IncludeFiles)">
+    </VlcWindowsX86IncludeFiles>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="plugins\codec\" />
+    <Folder Include="plugins\demux\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\VideoLAN.LibVLC.Windows.3.0.18\build\VideoLAN.LibVLC.Windows.targets" Condition="Exists('..\packages\VideoLAN.LibVLC.Windows.3.0.18\build\VideoLAN.LibVLC.Windows.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

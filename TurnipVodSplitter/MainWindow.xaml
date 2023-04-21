@@ -28,7 +28,7 @@
     <Grid Margin="5,5,5,5" ShowGridLines="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="2*" />
-            <RowDefinition Height="3" />
+            <RowDefinition Height="5" />
             <RowDefinition Height="1*" />
         </Grid.RowDefinitions>
 
@@ -133,7 +133,8 @@
         <GridSplitter Grid.Row="1"
             ResizeDirection="Rows"
             HorizontalAlignment="Stretch"
-            Background="darkGray"/>
+            
+            />
 
         <Grid Grid.Row="2">
             <Grid.RowDefinitions>
