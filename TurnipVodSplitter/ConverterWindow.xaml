@@ -6,10 +6,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TurnipVodSplitter"
         xmlns:fa="http://schemas.fontawesome.io/icons/"
+        xmlns:vc="clr-namespace:TurnipVodSplitter.WpfValueConverters"
         mc:Ignorable="d"
         Loaded="OnLoaded"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
         Title="Video Conversion" Height="450" Width="800">
+        <Window.Resources>
+            <vc:ConversionStateIconName x:Key="conversionStateIconName" />
+            <vc:ConversionStateSpinType x:Key="conversionStateSpinType" />
+        </Window.Resources>
     <Grid Margin="5">
         <Grid.RowDefinitions>
             <RowDefinition Height="40" />
@@ -26,7 +31,11 @@
                 <DataTemplate DataType="{x:Type local:ConversionInfo}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Path=tabName}" />
-                        <fa:FontAwesome Icon="Check" VerticalAlignment="Center" Margin="4,0,0,0" />
+                        <fa:FontAwesome 
+                            Icon="{Binding Path=status, Converter={StaticResource conversionStateIconName}}" 
+                            Spin="{Binding Path=status, Converter={StaticResource conversionStateSpinType}}"
+                            VerticalAlignment="Center" 
+                            Margin="4,0,0,0" />
                     </StackPanel>
                 </DataTemplate>
             </TabControl.ItemTemplate>

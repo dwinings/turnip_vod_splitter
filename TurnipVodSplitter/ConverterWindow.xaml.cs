@@ -1,38 +1,22 @@
 ﻿using System;
-using System.CodeDom;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace TurnipVodSplitter {
     public partial class ConverterWindow : Window {
-        private int outstandingProcs = 0;
-        private bool _isConverting = false;
+        private int _outstandingProcs = 0;
+        private bool _hasAnyFailures = false;
         private readonly string _inputFile = null;
         private readonly string _ffmpegPath = null;
         private readonly string _outputDirectory = null;
         private readonly string _eventName = "";
         private readonly IEnumerable<SplitEntry> _splits = null;
-        private readonly ObservableCollection<ConversionInfo> _conversions = new ObservableCollection<ConversionInfo>();
-        public ObservableCollection<ConversionInfo> conversions => _conversions;
-
-        public event EventHandler ConversionStarted;
-        public event EventHandler ConversionCompleted;
-        public event EventHandler ConversionFailed;
-        public event EventHandler<DataReceivedEventArgs> ConversionOutput;
+        public ObservableCollection<ConversionInfo> conversions { get; } = new ObservableCollection<ConversionInfo>();
 
         private static readonly string FFMPEG_BASE_ARGS = "-hide_banner -loglevel info -nostats -y -i";
 
@@ -65,24 +49,13 @@ namespace TurnipVodSplitter {
             this._inputFile = inputFile;
             this._outputDirectory = outputDirectory;
             this._eventName = eventName;
-
-            /*
-            this.ConversionStarted += this.OnConversionStarted;
-            this.ConversionFailed += this.OnConversionFailed;
-            this.ConversionCompleted += this.OnConversionCompleted;
-            this.ConversionOutput += this.onFfmpegProcessCreatedOutput;
-            */
         }
 
         public void OnLoaded(object sender, EventArgs args) {
             Convert();
         }
 
-        private string Extension {
-            get {
-                return Path.GetExtension(this._inputFile);
-            }
-        }
+        private string extension => Path.GetExtension(this._inputFile);
 
         private string OutputFile(string splitName) {
             string fileBaseName = "";
@@ -90,14 +63,13 @@ namespace TurnipVodSplitter {
                 fileBaseName = $"[{this._eventName}] ";
             }
 
-            fileBaseName = String.Concat(fileBaseName, $"{splitName}{this.Extension}");
+            fileBaseName = String.Concat(fileBaseName, $"{splitName}{this.extension}");
             return Path.Combine(this._outputDirectory, fileBaseName);
         }
 
 
         private void Convert() {
             int procIdx = 0;
-            this.ConversionStarted?.Invoke(this, EventArgs.Empty);
 
             foreach (var split in this._splits) {
                 var outputFile = OutputFile(split.splitName);
@@ -132,79 +104,69 @@ namespace TurnipVodSplitter {
                     idx = procIdx,
                 };
 
+                proc.Exited += conversion.onFfmpegProcessExited;
+                procIdx += 1;
+                this.conversions.Add(conversion);
                 proc.OutputDataReceived += conversion.onFfmpegProcessCreatedOutput;
                 proc.ErrorDataReceived += conversion.onFfmpegProcessCreatedOutput;
 
-                this.conversions.Add(conversion);
-                proc.Exited += conversion.onFfmpegProcessExited;
-                procIdx += 1;
+                this._outstandingProcs += 1;
 
-                this.outstandingProcs += 1;
                 proc.Start();
+                conversion.outputText = $"Started [{this._ffmpegPath} {args}] @ PID {proc.Id}\n";
                 proc.BeginOutputReadLine();
                 proc.BeginErrorReadLine();
 
+                conversion.Succeeded += onConversionSucceeded;
+                conversion.Failed += onConversionFailed;
 
-
-                // this.tbFfmpegOutput.AppendText($"Started [{this._ffmpegPath} {args}] @ PID {proc.Id}\n");
-                // this.svFfmpegOutput.ScrollToEnd();
-
-                /*
-                proc.Exited += (o, e) => {
-                    this.Dispatcher.Invoke(() => {
-                        this.onFfmpegProcessExited(o, e);
-                    });
-                };
-                */
             }
         }
+
+        public void onConversionSucceeded(object sender, EventArgs e) {
+            this._outstandingProcs -= 1;
+
+            if (this._outstandingProcs == 0) {
+                onAllConversionsComplete();
+            }
+        }
+
+        public void onConversionFailed(object sender, EventArgs e) {
+            _hasAnyFailures = true;
+            this._outstandingProcs -= 1;
+
+            if (this._outstandingProcs == 0) {
+                onAllConversionsComplete();
+            }
+        }
+
+        public void onAllConversionsComplete() {
+            this.btnComplete.Content = this._hasAnyFailures ? "Go Back" : "Done";
+        }
+
+
         public void OnCompleteButtonClick(object sender, EventArgs e) {
             this.Close();
         }
-
-
-        /*
-        private void onFfmpegProcessExited(object sender, EventArgs e) {
-                this.outstandingProcs -= 1;
-                var proc = sender as Process;
-                this.tbFfmpegOutput.AppendText($"\t[{proc.Id:D7}] Has exited with code {proc.ExitCode}\n");
-                this.svFfmpegOutput.ScrollToEnd();
-
-                if (proc.ExitCode != 0) {
-                    this.ConversionFailed?.Invoke(sender, e);
-
-                } else if (this.outstandingProcs == 0) {
-                    this.ConversionCompleted?.Invoke(this, EventArgs.Empty);
-                } 
-        }
-
-        private void onFfmpegProcessCreatedOutput(object sender, DataReceivedEventArgs dataReceivedEventArgs) {
-            var proc = sender as Process;
-            this.tbFfmpegOutput.AppendText($"\t[{proc.Id:D7}] {dataReceivedEventArgs.Data}\n");
-            this.svFfmpegOutput.ScrollToEnd();
-        }
-
-        public void OnConversionStarted(object sender, EventArgs e) {
-            _isConverting = true;
-            this.tbFfmpegOutput.Text = "";
-
-        }
-
-        public void OnConversionCompleted(object sender, EventArgs e) {
-            this._isConverting = false;
-            tbFfmpegOutput.AppendText("\nAll done!");
-            this.btnComplete.Content = "Ok";
-        }
-
-        public void OnConversionFailed(object sender, EventArgs e) {
-            this._isConverting = false;
-            tbFfmpegOutput.AppendText("\nConversion Failed!");
-            this.btnComplete.Content = "Go back";
-        }
-        */
     }
+
     public class ConversionInfo : INotifyPropertyChanged {
+        public event EventHandler Completed;
+        public event EventHandler Succeeded;
+        public event EventHandler Failed;
+
         private Process _proc;
+
+        public ConversionInfo() : this(null) { }
+
+        public ConversionInfo(ConverterWindow window) {
+            this._window = window;
+            this.Completed += OnCompleted;
+            this.Succeeded += OnSucceeded;
+            this.Failed += OnFailed;
+        }
+
+        #region props
 
         public Process proc {
             get => _proc;
@@ -218,7 +180,8 @@ namespace TurnipVodSplitter {
             set => this.SetField(ref _idx, value);
         }
 
-        private string _status;
+        /* converting, succeeded, failed */
+        private string _status = "converting";
         private readonly ConverterWindow _window;
 
         public string status {
@@ -234,41 +197,43 @@ namespace TurnipVodSplitter {
             set => SetField(ref _outputText, value);
         }
 
-        public ConversionInfo() : this(null) { }
+        #endregion
 
-        public ConversionInfo(ConverterWindow window) {
-            this._window = window;
-        }
-
+        #region eventhandlers
         public void onFfmpegProcessExited(object sender, EventArgs e) {
-            this._outputText += $"\t[{proc.Id:D7}] Has exited with code {proc.ExitCode}\n";
-            if (proc.ExitCode != 0) {
-                // this.ConversionFailed?.Invoke(sender, e);
-
-            } else if (this.outstandingProcs == 0) {
-                // this.ConversionCompleted?.Invoke(this, EventArgs.Empty);
-            }
+            this._window.Dispatcher.InvokeAsync(() => {
+                this.Completed?.Invoke(sender, e);
+            });
         }
 
         public void onFfmpegProcessCreatedOutput(object sender, DataReceivedEventArgs dataReceivedEventArgs) {
             this.outputText += $"\t[{proc.Id:D7}] {dataReceivedEventArgs.Data}\n";
         }
 
-        private int outstandingProcs = 0;
+        public void OnCompleted(object sender, EventArgs e) {
+            this.outputText += $"\t[{proc.Id:D7}] Has exited with code {proc.ExitCode}\n";
+            if (proc.ExitCode != 0) {
+                this.Failed?.Invoke(sender, e);
 
-        public void OnConversionCompleted(object sender, EventArgs e) {
-            // this._isConverting = false;
-            // tbFfmpegOutput.AppendText("\nAll done!");
-            // this.btnComplete.Content = "Ok";
+            } else {
+                this.Succeeded?.Invoke(sender, e);
+            }
         }
 
-        public void OnConversionFailed(object sender, EventArgs e) {
-            // this._isConverting = false;
-            // tbFfmpegOutput.AppendText("\nConversion Failed!");
-            // this.btnComplete.Content = "Go back";
+        public void OnSucceeded(object sender, EventArgs e) {
+            this.outputText += "\nAll done!";
+            this.status = "succeeded";
         }
 
+        public void OnFailed(object sender, EventArgs e) {
+            this.outputText += "\nConversion Failed!";
+            this.status = "failed";
+        }
+        #endregion
+
+        #region notify
         public event PropertyChangedEventHandler PropertyChanged;
+
 
         protected virtual void triggerPropertyChanged([CallerMemberName] string propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -280,5 +245,6 @@ namespace TurnipVodSplitter {
             triggerPropertyChanged(propertyName);
             return true;
         }
+        #endregion
     }
 }
