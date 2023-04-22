@@ -9,6 +9,7 @@
         xmlns:vlcwpf="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:vlc="clr-namespace:LibVLCSharp.Shared;assembly=LibVLCSharp"
         xmlns:fa="http://schemas.fontawesome.io/icons/"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
 
         WindowStyle="ThreeDBorderWindow"
         mc:Ignorable="d"
@@ -22,10 +23,17 @@
         <cv:PlayPauseFaIcon x:Key="PlayPauseFaIcon"></cv:PlayPauseFaIcon>
         <cv:LongMsToTime x:Key="LongMsToTime"></cv:LongMsToTime>
         <fa:ImageSourceConverter x:Key="ImageSourceConverter"></fa:ImageSourceConverter>
+
+        <Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,5" />
+        </Style>
+
+        <GridLength x:Key="inlineContentRowHeight">45</GridLength>
+        <sys:Double x:Key="standardButtonWidth">35</sys:Double>
     </Window.Resources>
 
     <!-- GridSplitter -->
-    <Grid Margin="5,5,5,5" ShowGridLines="True">
+    <Grid Margin="10,10" ShowGridLines="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="2*" />
             <RowDefinition Height="5" />
@@ -34,12 +42,11 @@
 
         <Grid Name="gridMediaPlayer" Grid.Row="0">
             <Grid.RowDefinitions>
-                <RowDefinition Height="45" />
+                <RowDefinition Height="{StaticResource inlineContentRowHeight}" />
                 <RowDefinition Height="1*" />
-                <RowDefinition Height="45" />
+                <RowDefinition Height="{StaticResource inlineContentRowHeight}" />
             </Grid.RowDefinitions>
             <DockPanel Grid.Row="0" 
-                       Margin="0,5,0,5" 
                        LastChildFill="True">
                 <Button Name="btnOpenFile"
                         DockPanel.Dock="Right" 
@@ -63,8 +70,12 @@
                 </Label>
             </DockPanel>
 
-            <vlcwpf:VideoView Name="vlcVideoView" Grid.Row="1" MediaPlayer="{Binding vlcMediaPlayer}" Background="Black" />
-            <DockPanel Grid.Row="2" Margin="0,5,0,5">
+            <vlcwpf:VideoView Name="vlcVideoView" 
+                              Grid.Row="1" 
+                              MediaPlayer="{Binding vlcMediaPlayer}" 
+                              Margin="0,5"
+                              Background="Black" />
+            <DockPanel Grid.Row="2">
                 <!-- Right side of the control bar -->
                 <StackPanel 
                     DockPanel.Dock="Right"
@@ -80,7 +91,7 @@
                             Margin="5,0,5,0"
                             HorizontalAlignment="Center"
                             ToolTip="Play/Pause"
-                            Width="35">
+                            Width="{StaticResource standardButtonWidth}">
                         <fa:FontAwesome 
                             Icon="{Binding Path=vlcMediaPlayer.IsPlaying,
                                            Converter={StaticResource PlayPauseFaIcon}}" />
@@ -90,7 +101,7 @@
                     <Button Name="btnSplitBegin"
                             Click="onBeginSplitClick"
                             ToolTip="Set beginning of current split"
-                            Width="35">
+                            Width="{StaticResource standardButtonWidth}">
                         <StackPanel Orientation="Horizontal">
                             <fa:FontAwesome 
                                 Icon="ChevronLeft"
@@ -138,16 +149,42 @@
 
         <Grid Grid.Row="2">
             <Grid.RowDefinitions>
-                <RowDefinition Height="40" />
+                <RowDefinition Height="{StaticResource inlineContentRowHeight}" />
                 <RowDefinition Height="1*" />
-                <RowDefinition Height="40" />
+                <RowDefinition Height="{StaticResource inlineContentRowHeight}" />
             </Grid.RowDefinitions>
-            <DockPanel Grid.Row="0">
-                <Label VerticalContentAlignment="Center">Event Name</Label>
-                <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" Name="tbEventName" MaxLines="1"
-                     TextWrapping="NoWrap" Margin="10,0" Width="200" Text="{Binding Path=eventName}"
-                     HorizontalAlignment="Left">
-                </TextBox>
+            <DockPanel Grid.Row="0" LastChildFill="False">
+                <StackPanel Orientation="Horizontal">
+                    <Label VerticalContentAlignment="Center">Event Name</Label>
+                    <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" Name="tbEventName" MaxLines="1"
+                         TextWrapping="NoWrap" Margin="10,0" Width="200" Text="{Binding Path=eventName}"
+                         HorizontalAlignment="Left">
+                    </TextBox>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <StackPanel.Resources>
+                        <Style TargetType="Button">
+                            <Setter Property="Margin" Value="2,0" />
+                        </Style>
+                    </StackPanel.Resources>
+                    <Button Name="btnSaveSplits"
+                            ToolTip="Save Splits"
+                            Click="onSaveSplitsClicked"
+                            Width="{StaticResource standardButtonWidth}">
+                        <fa:FontAwesome Icon="Save" />
+
+                    </Button>
+
+                    <Button Name="btnLoadSplits"
+                            ToolTip="Load Splits"
+                            Click="onLoadSplitsClicked"
+                            Width="{StaticResource standardButtonWidth}">
+                        <fa:FontAwesome Icon="FolderOpen" />
+                    </Button>
+                    
+
+                </StackPanel>
             </DockPanel>
 
             <DataGrid Grid.Row="1" Name="dgSplits" ItemsSource="{Binding splits}" AutoGenerateColumns="False"
@@ -160,7 +197,7 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <DockPanel Grid.Row="2" LastChildFill="True" Margin="0,5,0,0">
+            <DockPanel Grid.Row="2" LastChildFill="True">
                 <Label
                     Margin="0,0,3,0"
                     VerticalAlignment="Center">
@@ -182,7 +219,11 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
-                <Button Name="btnChooseOutputDir" DockPanel.Dock="Right" IsEnabled="True" Width="40" Margin="5,0,0,0"
+                <Button Name="btnChooseOutputDir"
+                        DockPanel.Dock="Right"
+                        IsEnabled="True"
+                        Width="{StaticResource standardButtonWidth}"
+                        Margin="5,0,0,0"
                     VerticalAlignment="Stretch" Click="onChooseOutputDirClick">
                     <fa:FontAwesome Icon="FolderOpen" />
                 </Button>

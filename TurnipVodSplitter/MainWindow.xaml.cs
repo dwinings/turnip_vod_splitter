@@ -6,17 +6,20 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Configuration;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Threading;
+using CsvHelper;
+using CsvHelper.Configuration;
 using TurnipVodSplitter.Properties;
 using DragEventArgs = System.Windows.DragEventArgs;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
-using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using OpenFileDialog = System.Windows.Forms.OpenFileDialog;
 
 namespace TurnipVodSplitter {
     public partial class MainWindow : Window {
@@ -30,8 +33,8 @@ namespace TurnipVodSplitter {
 
         public MainWindow() {
             InitializeComponent();
-            this.viewModel.outputDirectory = Properties.Settings.Default.lastOutputDirectory ?? "";
 
+            this.viewModel.outputDirectory = Properties.Settings.Default.lastOutputDirectory ?? "";
             this.viewModel.splits = new ObservableCollection<SplitEntry>();
             this.viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
             this.viewModel.vlcMediaPlayer.EnableHardwareDecoding = true;
@@ -39,6 +42,7 @@ namespace TurnipVodSplitter {
 
             string currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
             this.viewModel.ffmpegPath = Downloader.FullPath;
+
 
             if (_timer == null) {
                 _timer = new DispatcherTimer();
@@ -81,7 +85,7 @@ namespace TurnipVodSplitter {
                 ValidateNames = false,
             };
 
-            if (openFileDialog.ShowDialog() == true) {
+            if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
                 System.Uri uri = null;
                 System.Uri.TryCreate(openFileDialog.FileName, UriKind.Absolute, out uri);
                 loadVodFile(uri);
@@ -293,6 +297,44 @@ namespace TurnipVodSplitter {
                 _currentSplit = newSplitAtCurrentTime();
             } else {
                 _currentSplit.splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
+            }
+        }
+
+        private async void onSaveSplitsClicked(object sender, RoutedEventArgs e) {
+            SaveFileDialog saveFileDialog = new SaveFileDialog() {
+                RestoreDirectory = true,
+                DereferenceLinks = false,
+                ValidateNames = false,
+            };
+
+            if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                StreamWriter outputStream = new StreamWriter(saveFileDialog.OpenFile());
+                using var csvWriter = new CsvWriter(outputStream, CultureInfo.InvariantCulture);
+                csvWriter.Context.RegisterClassMap(new SplitEntryFieldMap());
+                await csvWriter.WriteRecordsAsync<SplitEntry>(this.viewModel.splits);
+                await csvWriter.FlushAsync();
+            }
+        }
+
+        private void onLoadSplitsClicked(object sender, RoutedEventArgs e) {
+            OpenFileDialog openFileDialog = new OpenFileDialog() {
+                RestoreDirectory = true,
+                DereferenceLinks = false,
+                ValidateNames = false,
+                Multiselect = false
+            };
+
+            if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                System.Uri uri = null;
+                System.Uri.TryCreate(openFileDialog.FileName, UriKind.Absolute, out uri);
+                StreamReader inputStream = new StreamReader(openFileDialog.OpenFile());
+                using var csvReader = new CsvReader(inputStream, CultureInfo.InvariantCulture);
+                csvReader.Context.RegisterClassMap(new SplitEntryFieldMap());
+
+                this.viewModel.splits.Clear();
+                foreach (var split in csvReader.GetRecords<SplitEntry>()) {
+                    this.viewModel.splits.Add(split);
+                }
             }
         }
 

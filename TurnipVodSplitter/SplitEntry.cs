@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using CsvHelper.Configuration;
 
 namespace TurnipVodSplitter {
     public class SplitEntry: INotifyPropertyChanged{
@@ -77,4 +78,15 @@ namespace TurnipVodSplitter {
 
         public string ffmpegArgsForSplit => $"-vcodec copy -acodec copy -ss {this.splitStartStr} -to {this.splitEndStr}";
     }
+
+    public sealed class SplitEntryFieldMap : ClassMap<SplitEntry> {
+        public SplitEntryFieldMap() {
+            Map(m => m.splitStart).Index(0);
+            Map(m => m.splitEnd).Index(1);
+            Map(m => m.player1).Index(2);
+            Map(m => m.player2).Index(3);
+
+        }
+    }
+
 }
