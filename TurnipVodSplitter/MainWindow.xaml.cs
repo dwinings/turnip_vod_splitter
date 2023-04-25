@@ -41,7 +41,7 @@ namespace TurnipVodSplitter {
             this.viewModel.vlcMediaPlayer.PositionChanged += onVideoPositionChanged;
 
             string currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
-            this.viewModel.ffmpegPath = Downloader.FullPath;
+            this.viewModel.ffmpegPath = Downloader.FFMPEG_PATH;
 
 
             if (_timer == null) {

@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.IO.Compression;
+using System.Reflection;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
@@ -20,6 +21,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
 
 namespace TurnipVodSplitter {
@@ -125,12 +127,31 @@ namespace TurnipVodSplitter {
 
         public Downloader() {
             InitializeComponent();
+
+            if (!Directory.Exists(_appData)) {
+                Directory.CreateDirectory(_appData);
+            }
+
             DownloadWorkflow();
         }
 
-        private static readonly string _appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        private static readonly string _appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CompanyName);
         private static readonly string _downloadPath = @"https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip";
-        public static readonly string FullPath = Path.Combine(Downloader._appData, "ffmpeg.exe");
+        public static readonly string FFMPEG_PATH = Path.Combine(Downloader._appData, "ffmpeg.exe");
+
+        private static string CompanyName {
+            get {
+                Assembly currentAssembly = typeof(Downloader).Assembly;
+                var attribs = currentAssembly.GetCustomAttributes(typeof(AssemblyCompanyAttribute)).ToArray<Attribute>();
+
+                if (attribs.Length > 0) {
+                    return ((AssemblyCompanyAttribute)attribs[0]).Company;
+
+                } else {
+                    return "Unknown";
+                }
+            }
+        }
 
         public async void DownloadWorkflow() {
             var progress = this.DataContext as DownloadProgress;
@@ -140,7 +161,7 @@ namespace TurnipVodSplitter {
                 this.Close();
             }
 
-            if (! await ExtractFfmpeg(downloadPath, FullPath, progress)) {
+            if (! await ExtractFfmpeg(downloadPath, FFMPEG_PATH, progress)) {
                 this.Close();
             }
 
