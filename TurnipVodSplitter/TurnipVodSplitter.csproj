@@ -140,9 +140,6 @@
     </Compile>
     <Compile Include="MainWindowViewModel.cs" />
     <Compile Include="SplitEntry.cs" />
-    <Compile Include="TabTester.xaml.cs">
-      <DependentUpon>TabTester.xaml</DependentUpon>
-    </Compile>
     <Compile Include="TurnipExtensions.cs" />
     <Compile Include="VlcMediaPlayer.cs" />
     <Compile Include="ConverterWindow.xaml.cs">
@@ -166,10 +163,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="ConverterWindow.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="TabTester.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
