@@ -11,7 +11,7 @@ public class ScrubAttempt : IFormattable {
         this.asOf = DateTime.Now;
     }
 
-    public string ToString(string format, IFormatProvider formatProvider) {
+    public string ToString(string? format, IFormatProvider? formatProvider) {
         return $"Scrubbed @ {asOf}: {position}";
     }
 }

@@ -26,13 +26,13 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace TurnipVodSplitter {
     public class DownloadProgress: IProgress<int>, INotifyPropertyChanged {
-        private DateTime _lastReport;
-        private DateTime _lastUIUpdate;
-        private decimal _currentXferRateKb;
-        private string _currentOperation;
+        private DateTime? _lastReport;
+        private DateTime? _lastUIUpdate;
+        private decimal? _currentXferRateKb;
+        private string? _currentOperation;
 
         public string CurrentOperation {
-            get => _currentOperation;
+            get => _currentOperation ?? "";
             set => _currentOperation = value;
         }
 
@@ -81,9 +81,9 @@ namespace TurnipVodSplitter {
             _stopWatch.Restart();
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        private object _catchUpTask = null;
+        private object? _catchUpTask = null;
         private static readonly int _debounceInterval = 100;
         private readonly Stopwatch _stopWatch;
 
@@ -107,11 +107,11 @@ namespace TurnipVodSplitter {
             }
         }
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null) {
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null) {
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null) {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
             field = value;
             OnPropertyChanged(propertyName);
@@ -124,9 +124,13 @@ namespace TurnipVodSplitter {
         private readonly byte[] _buffer = new byte[_bufferSize];
         private CancellationToken _cancellationToken = new CancellationToken();
         private readonly string _defaultDownloadFilename = "ffmpeg.zip";
+        private DownloadProgress _downloadProgress;
 
         public Downloader() {
             InitializeComponent();
+
+            this._downloadProgress = this.DataContext as DownloadProgress 
+                                     ?? throw new InvalidOperationException("Invalid datacontext.");
 
             if (!Directory.Exists(_appData)) {
                 Directory.CreateDirectory(_appData);
@@ -154,14 +158,14 @@ namespace TurnipVodSplitter {
         }
 
         public async void DownloadWorkflow() {
-            var progress = this.DataContext as DownloadProgress;
-            var downloadPath = await DownloadFile(_downloadPath, progress);
+            var downloadPath = await DownloadFile(_downloadPath, this._downloadProgress);
             if (downloadPath == null) {
                 MessageBox.Show("Download of ffmpeg failed :(", "Turnip Video Splitter", MessageBoxButton.OK, MessageBoxImage.Error);
                 this.Close();
+                return;
             }
 
-            if (! await ExtractFfmpeg(downloadPath, FFMPEG_PATH, progress)) {
+            if (! await ExtractFfmpeg(downloadPath, FFMPEG_PATH, this._downloadProgress)) {
                 this.Close();
             }
 
@@ -206,7 +210,7 @@ namespace TurnipVodSplitter {
         }
 
 
-        public async Task<string> DownloadFile(string url, DownloadProgress progress) {
+        public async Task<string?> DownloadFile(string url, DownloadProgress progress) {
             progress.ChangeOperation("Downloading");
 
             Uri.TryCreate(url, UriKind.Absolute, out var uri);

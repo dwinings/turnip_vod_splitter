@@ -11,11 +11,11 @@ namespace TurnipVodSplitter {
     public partial class ConverterWindow : Window {
         private int _outstandingProcs = 0;
         private bool _hasAnyFailures = false;
-        private readonly string _inputFile = null;
-        private readonly string _ffmpegPath = null;
-        private readonly string _outputDirectory = null;
+        private readonly string _inputFile;
+        private readonly string _ffmpegPath;
+        private readonly string _outputDirectory;
         private readonly string _eventName = "";
-        private readonly IEnumerable<SplitEntry> _splits = null;
+        private readonly IEnumerable<SplitEntry> _splits;
         public ObservableCollection<ConversionInfo> conversions { get; } = new ObservableCollection<ConversionInfo>();
 
         private static readonly string FFMPEG_BASE_ARGS = "-hide_banner -loglevel info -nostats -y -i";
@@ -51,7 +51,7 @@ namespace TurnipVodSplitter {
             this._eventName = eventName;
         }
 
-        public void OnLoaded(object sender, EventArgs args) {
+        public void OnLoaded(object? sender, EventArgs args) {
             Convert();
         }
 
@@ -123,7 +123,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        public void onConversionSucceeded(object sender, EventArgs e) {
+        public void onConversionSucceeded(object? sender, EventArgs e) {
             this._outstandingProcs -= 1;
 
             if (this._outstandingProcs == 0) {
@@ -131,7 +131,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        public void onConversionFailed(object sender, EventArgs e) {
+        public void onConversionFailed(object? sender, EventArgs e) {
             _hasAnyFailures = true;
             this._outstandingProcs -= 1;
 
@@ -145,21 +145,21 @@ namespace TurnipVodSplitter {
         }
 
 
-        public void OnCompleteButtonClick(object sender, EventArgs e) {
+        public void OnCompleteButtonClick(object? sender, EventArgs e) {
             this.Close();
         }
     }
 
     public class ConversionInfo : INotifyPropertyChanged {
-        public event EventHandler Completed;
-        public event EventHandler Succeeded;
-        public event EventHandler Failed;
+        public event EventHandler? Completed;
+        public event EventHandler? Succeeded;
+        public event EventHandler? Failed;
 
-        private Process _proc;
+        private Process? _proc;
 
         public ConversionInfo() : this(null) { }
 
-        public ConversionInfo(ConverterWindow window) {
+        public ConversionInfo(ConverterWindow? window) {
             this._window = window;
             this.Completed += OnCompleted;
             this.Succeeded += OnSucceeded;
@@ -168,7 +168,7 @@ namespace TurnipVodSplitter {
 
         #region props
 
-        public Process proc {
+        public Process? proc {
             get => _proc;
             set => this.SetField(ref _proc, value);
         }
@@ -182,7 +182,7 @@ namespace TurnipVodSplitter {
 
         /* converting, succeeded, failed */
         private string _status = "converting";
-        private readonly ConverterWindow _window;
+        private readonly ConverterWindow? _window;
 
         public string status {
             get => _status;
@@ -200,19 +200,19 @@ namespace TurnipVodSplitter {
         #endregion
 
         #region eventhandlers
-        public void onFfmpegProcessExited(object sender, EventArgs e) {
-            this._window.Dispatcher.InvokeAsync(() => {
+        public void onFfmpegProcessExited(object? sender, EventArgs e) {
+            this._window?.Dispatcher.InvokeAsync(() => {
                 this.Completed?.Invoke(sender, e);
             });
         }
 
-        public void onFfmpegProcessCreatedOutput(object sender, DataReceivedEventArgs dataReceivedEventArgs) {
-            this.outputText += $"\t[{proc.Id:D7}] {dataReceivedEventArgs.Data}\n";
+        public void onFfmpegProcessCreatedOutput(object? sender, DataReceivedEventArgs dataReceivedEventArgs) {
+            this.outputText += $"\t[{proc?.Id:D7}] {dataReceivedEventArgs.Data}\n";
         }
 
-        public void OnCompleted(object sender, EventArgs e) {
-            this.outputText += $"\t[{proc.Id:D7}] Has exited with code {proc.ExitCode}\n";
-            if (proc.ExitCode != 0) {
+        public void OnCompleted(object? sender, EventArgs e) {
+            this.outputText += $"\t[{proc?.Id:D7}] Has exited with code {proc?.ExitCode}\n";
+            if (proc?.ExitCode != 0) {
                 this.Failed?.Invoke(sender, e);
 
             } else {
@@ -220,26 +220,26 @@ namespace TurnipVodSplitter {
             }
         }
 
-        public void OnSucceeded(object sender, EventArgs e) {
+        public void OnSucceeded(object? sender, EventArgs e) {
             this.outputText += "\nAll done!";
             this.status = "succeeded";
         }
 
-        public void OnFailed(object sender, EventArgs e) {
+        public void OnFailed(object? sender, EventArgs e) {
             this.outputText += "\nConversion Failed!";
             this.status = "failed";
         }
         #endregion
 
         #region notify
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
 
-        protected virtual void triggerPropertyChanged([CallerMemberName] string propertyName = null) {
+        protected virtual void triggerPropertyChanged([CallerMemberName] string? propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null) {
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null) {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
             field = value;
             triggerPropertyChanged(propertyName);

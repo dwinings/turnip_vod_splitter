@@ -5,11 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:turnip="clr-namespace:TurnipVodSplitter"
         xmlns:cv="clr-namespace:TurnipVodSplitter.WpfValueConverters"
-        xmlns:diag="clr-namespace:System.Diagnostics;assembly=WindowsBase"
         xmlns:vlcwpf="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:vlc="clr-namespace:LibVLCSharp.Shared;assembly=LibVLCSharp"
-        xmlns:fa="http://schemas.fontawesome.io/icons/"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:fa="http://schemas.fontawesome.com/icons/"
 
         WindowStyle="ThreeDBorderWindow"
         mc:Ignorable="d"
@@ -54,7 +53,7 @@
                         ToolTip="Open source VOD"
                         Width="40"
                         Margin="5,0,0,0">
-                    <fa:FontAwesome Icon="FolderOpen" />
+                    <fa:FontAwesome Icon="Solid_FolderOpen" />
                 </Button>
                 <Label
                     VerticalAlignment="Center"
@@ -104,7 +103,8 @@
                             Width="{StaticResource standardButtonWidth}">
                         <StackPanel Orientation="Horizontal">
                             <fa:FontAwesome 
-                                Icon="ChevronLeft"
+                                
+                                Icon="Solid_ChevronLeft"
                                 VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -112,7 +112,7 @@
                             Click="onEndSplitClick"
                             ToolTip="Set end of current split"
                             Width="35">
-                        <fa:FontAwesome Icon="ChevronRight" VerticalAlignment="Center" />
+                        <fa:FontAwesome Icon="Solid_ChevronRight" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
                 <Label Name="labelTotalDuration" DockPanel.Dock="Right"
@@ -179,7 +179,7 @@
                             ToolTip="Save Splits"
                             Click="onSaveSplitsClicked"
                             Width="{StaticResource standardButtonWidth}">
-                        <fa:FontAwesome Icon="Save" />
+                        <fa:FontAwesome Icon="Solid_Save" />
 
                     </Button>
 
@@ -187,7 +187,7 @@
                             ToolTip="Load Splits"
                             Click="onLoadSplitsClicked"
                             Width="{StaticResource standardButtonWidth}">
-                        <fa:FontAwesome Icon="FolderOpen" />
+                        <fa:FontAwesome Icon="Solid_FolderOpen" />
                     </Button>
                     
 
@@ -228,7 +228,7 @@
                         VerticalAlignment="Stretch" 
                         Click="onBeginConvertClick">
                     <StackPanel Orientation="Horizontal">
-                        <fa:FontAwesome Icon="Scissors"
+                        <fa:FontAwesome Icon="Solid_Cut"
                                         VerticalAlignment="Center"/>
                         <TextBlock Margin="5,0,0,0">
                             Split
@@ -241,7 +241,7 @@
                         Width="{StaticResource standardButtonWidth}"
                         Margin="5,0,0,0"
                     VerticalAlignment="Stretch" Click="onChooseOutputDirClick">
-                    <fa:FontAwesome Icon="FolderOpen" />
+                    <fa:FontAwesome Icon="Solid_FolderOpen" />
                 </Button>
                 <TextBox Name="tbOutputDir" VerticalAlignment="Stretch" IsReadOnly="True" IsTabStop="False"
                      IsManipulationEnabled="False" BorderBrush="Black" BorderThickness="1" Padding="5,0,0,0"

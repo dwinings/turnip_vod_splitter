@@ -12,7 +12,7 @@ namespace TurnipVodSplitter {
     public class SplitEntry: INotifyPropertyChanged{
         private TimeSpan _splitStart;
         private TimeSpan _splitEnd;
-        private string _player1;
+        private string _player1 = "";
         private string _player2 = "";
 
         public TimeSpan splitStart {
@@ -71,8 +71,8 @@ namespace TurnipVodSplitter {
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null) {
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 

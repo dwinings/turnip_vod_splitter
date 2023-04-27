@@ -25,22 +25,22 @@ using OpenFileDialog = System.Windows.Forms.OpenFileDialog;
 namespace TurnipVodSplitter {
     public partial class MainWindow : Window {
         bool _isPaused = true;
-        private ScrubAttempt _trynaScrub = null;
-        private SplitEntry _currentSplit = null;
-        private readonly DispatcherTimer _timer = null;
+        private ScrubAttempt? _trynaScrub;
+        private SplitEntry? _currentSplit;
+        private readonly DispatcherTimer _timer;
 
-        private MainWindowViewModel viewModel => this.DataContext as MainWindowViewModel;
+        public MainWindowViewModel viewModel;
 
         public MainWindow() {
             InitializeComponent();
 
+            this.viewModel = this.DataContext as MainWindowViewModel ?? throw new InvalidOperationException("Invalid view model type.");
             this.viewModel.outputDirectory = Properties.Settings.Default.lastOutputDirectory ?? "";
-            this.viewModel.splits = new BindingList<SplitEntry>();
             this.viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
             this.viewModel.vlcMediaPlayer.EnableHardwareDecoding = true;
             this.viewModel.vlcMediaPlayer.PositionChanged += onVideoPositionChanged;
 
-            string currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+            string? currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName);
             this.viewModel.ffmpegPath = Downloader.FFMPEG_PATH;
 
 
@@ -52,7 +52,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void onLoaded(object sender, RoutedEventArgs e) {
+        private void onLoaded(object? sender, RoutedEventArgs e) {
             if (!File.Exists(this.viewModel.ffmpegPath)) {
                 var downloader = new Downloader();
                 downloader.ShowDialog();
@@ -65,7 +65,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void Window_PreviewKeyDown(object sender, KeyEventArgs e) {
+        private void Window_PreviewKeyDown(object? sender, KeyEventArgs e) {
           if (!this.viewModel.isTextFieldFocused) {
             if (e.Key == Key.Enter) {
               onEndSplitClick(sender, e);
@@ -81,16 +81,16 @@ namespace TurnipVodSplitter {
 
 
         #region File Selection
-        private void onTextFieldFocused(object sender, EventArgs e) {
+        private void onTextFieldFocused(object? sender, EventArgs e) {
           this.viewModel.isTextFieldFocused = true;
 
         }
 
-        private void onTextFieldLostFocus(object sender, EventArgs e) {
+        private void onTextFieldLostFocus(object? sender, EventArgs e) {
           this.viewModel.isTextFieldFocused = false;
         }
 
-        private void onOpenFileClick(object sender, RoutedEventArgs e) {
+        private void onOpenFileClick(object? sender, RoutedEventArgs e) {
             OpenFileDialog openFileDialog = new OpenFileDialog() {
                 RestoreDirectory = true,
                 DereferenceLinks = false,
@@ -98,8 +98,12 @@ namespace TurnipVodSplitter {
             };
 
             if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
-                System.Uri uri = null;
+                System.Uri? uri = null;
                 System.Uri.TryCreate(openFileDialog.FileName, UriKind.Absolute, out uri);
+
+                if (uri == null) {
+                    throw new InvalidOperationException($"Couldn't open the file at {openFileDialog.FileName}");
+                }
                 loadVodFile(uri);
             }
         }
@@ -112,7 +116,7 @@ namespace TurnipVodSplitter {
             this.viewModel.splits.Clear();
         }
 
-        private void onChooseOutputDirClick(object sender, RoutedEventArgs e) {
+        private void onChooseOutputDirClick(object? sender, RoutedEventArgs e) {
             var startPath = Properties.Settings.Default.lastOutputDirectory ?? "";
             using var dialog = new FolderBrowserDialog() {SelectedPath = startPath};
 
@@ -126,7 +130,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void onBeginConvertClick(object sender, RoutedEventArgs e) {
+        private void onBeginConvertClick(object? sender, RoutedEventArgs e) {
             if (this.viewModel.vlcMediaPlayer.CanPause) {
                 this.viewModel.vlcMediaPlayer.Pause();
             }
@@ -147,7 +151,7 @@ namespace TurnipVodSplitter {
         #endregion
 
 
-        private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs propertyChangedEventArgs) {
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs propertyChangedEventArgs) {
             // Maybe we should enable the split video button.
             if (this.viewModel.outputDirectory == null) {
                 return;
@@ -170,7 +174,7 @@ namespace TurnipVodSplitter {
 
 
         #region Video Player Logic
-        private void onPlayClick(object sender, RoutedEventArgs e) {
+        private void onPlayClick(object? sender, RoutedEventArgs e) {
             if (this.viewModel.vlcMediaPlayer.IsPlaying) {
                 this._isPaused = false;
                 this.viewModel.vlcMediaPlayer.Play();
@@ -180,7 +184,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void onMediaChanged(object sender, MediaPlayerMediaChangedEventArgs e) {
+        private void onMediaChanged(object? sender, MediaPlayerMediaChangedEventArgs e) {
             this.IsEnabled = true;
             this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
             this.viewModel.vlcMediaPlayer.Volume = 0;
@@ -189,7 +193,7 @@ namespace TurnipVodSplitter {
         }
 
 
-        private void onSeekCompleted(object sender, EventArgs e) {
+        private void onSeekCompleted(object? sender, EventArgs e) {
             this.Dispatcher.Invoke(() => {
                 // Only ever called one at a time... after calling SeekTo()
                 this.viewModel.vlcMediaPlayer.PositionChanged -= onSeekCompleted;
@@ -201,7 +205,7 @@ namespace TurnipVodSplitter {
             });
         }
 
-        private void processDeferredScrubTick(object sender, EventArgs e) {
+        private void processDeferredScrubTick(object? sender, EventArgs e) {
             if (this._trynaScrub != null) {
                 Console.WriteLine($@"{this._trynaScrub}");
                 var pos = this._trynaScrub.position;
@@ -219,7 +223,7 @@ namespace TurnipVodSplitter {
         }
 
 
-        private void onVideoPositionChanged(object sender, MediaPlayerPositionChangedEventArgs e) {
+        private void onVideoPositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e) {
             if (!this._videoScrubberIgnoreUpdates) {
                 this.Dispatcher.Invoke(() => {
                     this.sliderMedia.Value = this.viewModel.vlcMediaPlayer.Position;
@@ -242,20 +246,20 @@ namespace TurnipVodSplitter {
 
         }
 
-        private void onVideoScrubberDragLeave(object sender, DragCompletedEventArgs dragCompletedEventArgs) {
+        private void onVideoScrubberDragLeave(object? sender, DragCompletedEventArgs dragCompletedEventArgs) {
             endVideoScrubberDrag();
         }
 
-        private void onVideoScrubberDragStarted(object sender, DragStartedEventArgs e) {
+        private void onVideoScrubberDragStarted(object? sender, DragStartedEventArgs e) {
             startVideoScrubberDrag();
 
         }
 
-        private void onVideoScrubberMouseDown(object sender, MouseButtonEventArgs e) {
+        private void onVideoScrubberMouseDown(object? sender, MouseButtonEventArgs e) {
             startVideoScrubberDrag();
         }
 
-        private void onVideoScrubberMouseUp(object sender, MouseButtonEventArgs e) {
+        private void onVideoScrubberMouseUp(object? sender, MouseButtonEventArgs e) {
             endVideoScrubberDrag();
         }
         #endregion
@@ -268,11 +272,11 @@ namespace TurnipVodSplitter {
                 };
         }
 
-        private void onSplitSelectionChanged(object sender, SelectionChangedEventArgs e) {
+        private void onSplitSelectionChanged(object? sender, SelectionChangedEventArgs e) {
            this._currentSplit = e.AddedItems[0] as SplitEntry;
         }
 
-        private void onEndSplitClick(object sender, RoutedEventArgs e) {
+        private void onEndSplitClick(object? sender, RoutedEventArgs e) {
             SplitEntry newSplit;
             if (_currentSplit == null) {
                 newSplit = new SplitEntry {
@@ -307,7 +311,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void onBeginSplitClick(object sender, RoutedEventArgs e) {
+        private void onBeginSplitClick(object? sender, RoutedEventArgs e) {
             if (_currentSplit == null) {
               var newSplit = newSplitAtCurrentTime();
                 this.viewModel.splits.Add(newSplit);
@@ -317,7 +321,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private async void onSaveSplitsClicked(object sender, RoutedEventArgs e) {
+        private async void onSaveSplitsClicked(object? sender, RoutedEventArgs e) {
             SaveFileDialog saveFileDialog = new SaveFileDialog() {
                 RestoreDirectory = true,
                 DereferenceLinks = false,
@@ -333,7 +337,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void onLoadSplitsClicked(object sender, RoutedEventArgs e) {
+        private void onLoadSplitsClicked(object? sender, RoutedEventArgs e) {
             OpenFileDialog openFileDialog = new OpenFileDialog() {
                 RestoreDirectory = true,
                 DereferenceLinks = false,
@@ -342,8 +346,6 @@ namespace TurnipVodSplitter {
             };
 
             if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
-                System.Uri uri = null;
-                System.Uri.TryCreate(openFileDialog.FileName, UriKind.Absolute, out uri);
                 StreamReader inputStream = new StreamReader(openFileDialog.OpenFile());
                 using var csvReader = new CsvReader(inputStream, CultureInfo.InvariantCulture);
                 csvReader.Context.RegisterClassMap(new SplitEntryFieldMap());

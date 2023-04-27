@@ -12,9 +12,9 @@ namespace TurnipVodSplitter.WpfValueConverters {
             bool isPlaying = (bool)value;
 
             if (!isPlaying) {
-                return "Play";
+                return "Solid_Play";
             } else {
-                return "Pause";
+                return "Solid_Pause";
             }
         }
 
@@ -36,7 +36,7 @@ namespace TurnipVodSplitter.WpfValueConverters {
 
     internal class ConversionStateSpinType : IValueConverter {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            string status = value as string;
+            string? status = value as string;
             if (status == "converting") {
                 return "True";
             } else {
@@ -51,11 +51,11 @@ namespace TurnipVodSplitter.WpfValueConverters {
 
     internal class ConversionStateIconName : IValueConverter {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            string status = value as string;
+            string? status = value as string;
             return status switch {
-                "converting" => "gear",
-                "succeeded" => "check",
-                "failed" => "xmark",
+                "converting" => "Solid_Cog",
+                "succeeded" => "Solid_Check",
+                "failed" => "Solid_Times",
                 _ => ""
             };
         }

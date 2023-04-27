@@ -5,8 +5,6 @@ VisualStudioVersion = 17.4.33213.308
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TurnipVodSplitter", "TurnipVodSplitter\TurnipVodSplitter.csproj", "{2811E3E2-7D2E-43CA-B2FB-59099577E655}"
 EndProject
-Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "TurnipSetup", "TurnipSetup\TurnipSetup.vdproj", "{D8F23343-E148-40F8-93D0-D1FC9A81A13F}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,16 +39,6 @@ Global
 		{2811E3E2-7D2E-43CA-B2FB-59099577E655}.Release|x64.Build.0 = Release|x64
 		{2811E3E2-7D2E-43CA-B2FB-59099577E655}.Release|x86.ActiveCfg = Release|Any CPU
 		{2811E3E2-7D2E-43CA-B2FB-59099577E655}.Release|x86.Build.0 = Release|Any CPU
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Debug|Any CPU.ActiveCfg = Debug
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Debug|ARM.ActiveCfg = Debug
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Debug|ARM64.ActiveCfg = Debug
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Debug|x64.ActiveCfg = Debug
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Debug|x86.ActiveCfg = Debug
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Release|Any CPU.ActiveCfg = Release
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Release|ARM.ActiveCfg = Release
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Release|ARM64.ActiveCfg = Release
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Release|x64.ActiveCfg = Release
-		{D8F23343-E148-40F8-93D0-D1FC9A81A13F}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

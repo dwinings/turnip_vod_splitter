@@ -16,19 +16,13 @@ namespace TurnipVodSplitter {
         public VlcMediaPlayer vlcMediaPlayer { get { return _vlcMediaPlayer; } }
 
 
-        private BindingList<SplitEntry> _splits;
-        public BindingList<SplitEntry> splits {
-            get => this._splits;
-            set {
-                this._splits = value;
-                OnPropertyChanged("splits");
-            }
-        }
+        private readonly BindingList<SplitEntry> _splits = new BindingList<SplitEntry>();
+        public BindingList<SplitEntry> splits => this._splits;
 
-        private String _mediaContentPath;
+        private string? _mediaContentPath;
 
-        public String mediaContentPath {
-            get => this._mediaContentPath;
+        public string mediaContentPath {
+            get => this._mediaContentPath ?? "";
             set {
                 this._mediaContentPath = value;
                 Settings.Default.lastVodLoaded = _mediaContentPath;
@@ -38,9 +32,9 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private string _outputDirectory;
+        private string? _outputDirectory;
         public string outputDirectory {
-            get => _outputDirectory;
+            get => _outputDirectory ?? "";
             set {
                 if (value == _outputDirectory) return;
                 _outputDirectory = value;
@@ -50,10 +44,10 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private string _ffmpegPath;
+        private string? _ffmpegPath;
 
         public string ffmpegPath {
-            get => _ffmpegPath;
+            get => _ffmpegPath ?? "";
             set {
                 if (value == _ffmpegPath) return;
                 _ffmpegPath = value;
@@ -82,13 +76,13 @@ namespace TurnipVodSplitter {
           set => SetField(ref _isTextFieldFocused, value);
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null) {
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null) {
+        protected bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null) {
             if (EqualityComparer<T>.Default.Equals(field, value)) return false;
             field = value;
             OnPropertyChanged(propertyName);
