@@ -139,6 +139,7 @@
       <DependentUpon>Downloader.xaml</DependentUpon>
     </Compile>
     <Compile Include="MainWindowViewModel.cs" />
+    <Compile Include="ScrubAttempt.cs" />
     <Compile Include="SplitEntry.cs" />
     <Compile Include="TurnipExtensions.cs" />
     <Compile Include="VlcMediaPlayer.cs" />

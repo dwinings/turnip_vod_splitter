@@ -156,9 +156,16 @@
             <DockPanel Grid.Row="0" LastChildFill="False">
                 <StackPanel Orientation="Horizontal">
                     <Label VerticalContentAlignment="Center">Event Name</Label>
-                    <TextBox VerticalContentAlignment="Center" VerticalAlignment="Center" Name="tbEventName" MaxLines="1"
-                         TextWrapping="NoWrap" Margin="10,0" Width="200" Text="{Binding Path=eventName}"
-                         HorizontalAlignment="Left">
+                    <TextBox Name="tbEventName" 
+                             VerticalContentAlignment="Center"
+                             VerticalAlignment="Center"
+                             MaxLines="1"
+                             TextWrapping="NoWrap" 
+                             Margin="10,0" Width="300"
+                             Text="{Binding Path=eventName}"
+                             GotKeyboardFocus="onTextFieldFocused"
+                             LostKeyboardFocus="onTextFieldLostFocus"
+                             HorizontalAlignment="Left">
                     </TextBox>
                 </StackPanel>
 
@@ -187,8 +194,17 @@
                 </StackPanel>
             </DockPanel>
 
-            <DataGrid Grid.Row="1" Name="dgSplits" ItemsSource="{Binding splits}" AutoGenerateColumns="False"
-                  Margin="0,5,0,5">
+            <DataGrid Grid.Row="1"
+                      Name="dgSplits"
+                      ItemsSource="{Binding splits}"
+                      AutoGenerateColumns="False"
+                      Margin="0,5,0,5"
+                      SelectionMode="Single"
+                      SelectionChanged="onSplitSelectionChanged"
+                      BeginningEdit="onTextFieldFocused"
+                      CellEditEnding="onTextFieldLostFocus"
+                      RowEditEnding="onTextFieldLostFocus"
+                      >
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding splitStartStr}" />
                     <DataGridTextColumn Header="Split End" MinWidth="110" Binding="{Binding splitEndStr}" />

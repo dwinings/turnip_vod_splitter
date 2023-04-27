@@ -16,8 +16,8 @@ namespace TurnipVodSplitter {
         public VlcMediaPlayer vlcMediaPlayer { get { return _vlcMediaPlayer; } }
 
 
-        private ObservableCollection<SplitEntry> _splits;
-        public ObservableCollection<SplitEntry> splits {
+        private BindingList<SplitEntry> _splits;
+        public BindingList<SplitEntry> splits {
             get => this._splits;
             set {
                 this._splits = value;
@@ -76,6 +76,11 @@ namespace TurnipVodSplitter {
             }
         }
 
+        private bool _isTextFieldFocused = false;
+        public bool isTextFieldFocused {
+          get => _isTextFieldFocused;
+          set => SetField(ref _isTextFieldFocused, value);
+        }
 
         public event PropertyChangedEventHandler PropertyChanged;
 

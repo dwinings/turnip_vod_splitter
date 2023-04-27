@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Forms;
 using System.Windows.Input;
@@ -23,7 +24,6 @@ using OpenFileDialog = System.Windows.Forms.OpenFileDialog;
 
 namespace TurnipVodSplitter {
     public partial class MainWindow : Window {
-
         bool _isPaused = true;
         private ScrubAttempt _trynaScrub = null;
         private SplitEntry _currentSplit = null;
@@ -35,7 +35,7 @@ namespace TurnipVodSplitter {
             InitializeComponent();
 
             this.viewModel.outputDirectory = Properties.Settings.Default.lastOutputDirectory ?? "";
-            this.viewModel.splits = new ObservableCollection<SplitEntry>();
+            this.viewModel.splits = new BindingList<SplitEntry>();
             this.viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
             this.viewModel.vlcMediaPlayer.EnableHardwareDecoding = true;
             this.viewModel.vlcMediaPlayer.PositionChanged += onVideoPositionChanged;
@@ -59,23 +59,35 @@ namespace TurnipVodSplitter {
             }
 
             if (!File.Exists(this.viewModel.ffmpegPath)) {
-                MessageBox.Show($"Could not find ffmpeg @ {this.viewModel.ffmpegPath}\n. If the downloader isn't working, please download ffmpeg yourself and place ffmpeg.exe inside %LOCALAPPDATA%.",
+                MessageBox.Show($"Could not find ffmpeg @ {this.viewModel.ffmpegPath}\n. If the downloader isn't working, please download ffmpeg yourself and place ffmpeg.exe inside %LOCALAPPDATA%/TurnipVODSplitter",
                     "Turnip Vod Downloader", MessageBoxButton.OK, MessageBoxImage.Error);
                 this.Close();
             }
         }
 
-        #region User Input
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e) {
+          if (!this.viewModel.isTextFieldFocused) {
             if (e.Key == Key.Enter) {
-                onEndSplitClick(sender, e);
-                e.Handled = true;
+              onEndSplitClick(sender, e);
+              e.Handled = true;
             }
 
             if (e.Key == Key.Space) {
-                onPlayClick(sender, e);
-                e.Handled = true;
+              onPlayClick(sender, e);
+              e.Handled = true;
             }
+          }
+        }
+
+
+        #region File Selection
+        private void onTextFieldFocused(object sender, EventArgs e) {
+          this.viewModel.isTextFieldFocused = true;
+
+        }
+
+        private void onTextFieldLostFocus(object sender, EventArgs e) {
+          this.viewModel.isTextFieldFocused = false;
         }
 
         private void onOpenFileClick(object sender, RoutedEventArgs e) {
@@ -100,16 +112,6 @@ namespace TurnipVodSplitter {
             this.viewModel.splits.Clear();
         }
 
-
-        private void onPlayClick(object sender, RoutedEventArgs e) {
-            if (this._isPaused) {
-                this.viewModel.vlcMediaPlayer.Play();
-            } else {
-                this.viewModel.vlcMediaPlayer.Pause();
-            }
-
-            this._isPaused = !this._isPaused;
-        }
         private void onChooseOutputDirClick(object sender, RoutedEventArgs e) {
             var startPath = Properties.Settings.Default.lastOutputDirectory ?? "";
             using var dialog = new FolderBrowserDialog() {SelectedPath = startPath};
@@ -144,14 +146,6 @@ namespace TurnipVodSplitter {
 
         #endregion
 
-        private void onMediaChanged(object sender, MediaPlayerMediaChangedEventArgs e) {
-            this.IsEnabled = true;
-            this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
-            this.viewModel.vlcMediaPlayer.Volume = 0;
-            this.viewModel.vlcMediaPlayer.Play();
-            this._isPaused = false;
-        }
-
 
         private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs propertyChangedEventArgs) {
             // Maybe we should enable the split video button.
@@ -175,20 +169,23 @@ namespace TurnipVodSplitter {
         }
 
 
-        #region Video Scrubbing jank
-
-        class ScrubAttempt : IFormattable {
-            public TimeSpan position;
-            public DateTime asOf;
-
-            public ScrubAttempt(long newTs) {
-                this.position = TimeSpan.FromMilliseconds(newTs);
-                this.asOf = DateTime.Now;
+        #region Video Player Logic
+        private void onPlayClick(object sender, RoutedEventArgs e) {
+            if (this.viewModel.vlcMediaPlayer.IsPlaying) {
+                this._isPaused = false;
+                this.viewModel.vlcMediaPlayer.Play();
+            } else {
+                this._isPaused = true;
+                this.viewModel.vlcMediaPlayer.Pause();
             }
+        }
 
-            public string ToString(string format, IFormatProvider formatProvider) {
-                return $"Scrubbed @ {asOf}: {position}";
-            }
+        private void onMediaChanged(object sender, MediaPlayerMediaChangedEventArgs e) {
+            this.IsEnabled = true;
+            this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
+            this.viewModel.vlcMediaPlayer.Volume = 0;
+            this.viewModel.vlcMediaPlayer.Play();
+            this._isPaused = false;
         }
 
 
@@ -268,8 +265,11 @@ namespace TurnipVodSplitter {
         private SplitEntry newSplitAtCurrentTime() {
                 return new SplitEntry {
                     splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time),
-                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
                 };
+        }
+
+        private void onSplitSelectionChanged(object sender, SelectionChangedEventArgs e) {
+           this._currentSplit = e.AddedItems[0] as SplitEntry;
         }
 
         private void onEndSplitClick(object sender, RoutedEventArgs e) {
@@ -279,22 +279,39 @@ namespace TurnipVodSplitter {
                     splitStart = TimeSpan.Zero,
                     splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
                 };
-
-            } else {
-                newSplit = new SplitEntry {
-                    splitStart = this._currentSplit.splitEnd,
-                    splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time),
-                };
+                _currentSplit = newSplit;
+                this.viewModel.splits.Add(newSplit);
 
             }
+            else {
+                int splitIdx = this.viewModel.splits.IndexOf(_currentSplit);
+                this._currentSplit.splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
 
-            _currentSplit = newSplit;
-            this.viewModel.splits.Add(newSplit);
+                if (splitIdx == 0) {
+                    this._currentSplit.splitStart = TimeSpan.Zero;
+                } else {
+                    // We're not the first split, so steal the beginning from the last split we made.
+                    if (this._currentSplit.splitStart == TimeSpan.Zero) {
+                        this._currentSplit.splitStart = this.viewModel.splits[splitIdx - 1].splitEnd;
+                    }
+
+                    if (splitIdx == this.viewModel.splits.Count - 1) { // Last split
+                        this._currentSplit = new SplitEntry();
+                        this.dgSplits.SelectedItem = this._currentSplit;
+                    }
+                    else {
+                        this._currentSplit = this.viewModel.splits[splitIdx + 1];
+                        this.dgSplits.SelectedItem = this._currentSplit;
+                    }
+                }
+            }
         }
 
         private void onBeginSplitClick(object sender, RoutedEventArgs e) {
             if (_currentSplit == null) {
-                _currentSplit = newSplitAtCurrentTime();
+              var newSplit = newSplitAtCurrentTime();
+                this.viewModel.splits.Add(newSplit);
+                this.dgSplits.SelectedItem = newSplit;
             } else {
                 _currentSplit.splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
             }
@@ -339,5 +356,6 @@ namespace TurnipVodSplitter {
         }
 
         #endregion
+
     }
 }
