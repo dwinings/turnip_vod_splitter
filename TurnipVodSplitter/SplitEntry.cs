@@ -20,7 +20,7 @@ namespace TurnipVodSplitter {
             set {
                 if (value.Equals(_splitStart)) return;
                 _splitStart = value;
-                OnPropertyChanged("splitStart");
+                OnPropertyChanged();
             }
         }
 
@@ -39,7 +39,7 @@ namespace TurnipVodSplitter {
             set {
                 if (value.Equals(_splitEnd)) return;
                 _splitEnd = value;
-                OnPropertyChanged("splitEnd");
+                OnPropertyChanged();
             }
         }
 
@@ -59,7 +59,7 @@ namespace TurnipVodSplitter {
             set {
                 if (value == _player1) return;
                 _player1 = value;
-                OnPropertyChanged("player1");
+                OnPropertyChanged();
             }
         }
         public string player2 {
@@ -67,7 +67,7 @@ namespace TurnipVodSplitter {
             set {
                 if (value == _player2) return;
                 _player2 = value;
-                OnPropertyChanged("player2");
+                OnPropertyChanged();
             }
         }
 

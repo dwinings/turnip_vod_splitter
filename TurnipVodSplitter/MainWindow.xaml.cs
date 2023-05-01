@@ -26,7 +26,18 @@ namespace TurnipVodSplitter {
     public partial class MainWindow : Window {
         bool _isPaused = true;
         private ScrubAttempt? _trynaScrub;
+
         private SplitEntry? _currentSplit;
+
+        private SplitEntry? currentSplit {
+            get => _currentSplit;
+            set {
+                _currentSplit = value;
+                this.dgSplits.SelectedIndex = this.viewModel.splits.IndexOf(_currentSplit);
+
+            }
+        }
+
         private readonly DispatcherTimer _timer;
 
         public MainWindowViewModel viewModel;
@@ -176,11 +187,11 @@ namespace TurnipVodSplitter {
         #region Video Player Logic
         private void onPlayClick(object? sender, RoutedEventArgs e) {
             if (this.viewModel.vlcMediaPlayer.IsPlaying) {
-                this._isPaused = false;
-                this.viewModel.vlcMediaPlayer.Play();
-            } else {
                 this._isPaused = true;
                 this.viewModel.vlcMediaPlayer.Pause();
+            } else {
+                this._isPaused = false;
+                this.viewModel.vlcMediaPlayer.Play();
             }
         }
 
@@ -197,10 +208,6 @@ namespace TurnipVodSplitter {
             this.Dispatcher.Invoke(() => {
                 // Only ever called one at a time... after calling SeekTo()
                 this.viewModel.vlcMediaPlayer.PositionChanged -= onSeekCompleted;
-                if (!this._isPaused) {
-                    this.viewModel.vlcMediaPlayer.Play();
-                }
-
                 this.sliderMedia.Value = this.viewModel.vlcMediaPlayer.Position;
             });
         }
@@ -211,13 +218,17 @@ namespace TurnipVodSplitter {
                 var pos = this._trynaScrub.position;
                 this._trynaScrub = null;
 
-                if (!this._isPaused) {
-                    this.viewModel.vlcMediaPlayer.Pause();
-                }
-
                 this._videoScrubberIgnoreUpdates = false;
 
                 this.viewModel.vlcMediaPlayer.PositionChanged += onSeekCompleted;
+                this.viewModel.vlcMediaPlayer.TimeChanged += (o, e) => {
+                    Console.WriteLine("TimeChanged was called");
+                };
+
+                this.viewModel.vlcMediaPlayer.SeekableChanged += (o, e) => {
+                    Console.WriteLine("SeekableChanged was fired.");
+                };
+
                 this.viewModel.vlcMediaPlayer.SeekTo(pos);
             }
         }
@@ -273,52 +284,86 @@ namespace TurnipVodSplitter {
         }
 
         private void onSplitSelectionChanged(object? sender, SelectionChangedEventArgs e) {
-           this._currentSplit = e.AddedItems[0] as SplitEntry;
+            if (e.AddedItems.Count > 0) {
+                this.currentSplit = e.AddedItems[0] as SplitEntry;
+            }
+
+            this._wasEndSplitClickedTwice = false;
         }
 
+
+        private bool _wasEndSplitClickedTwice = false;
         private void onEndSplitClick(object? sender, RoutedEventArgs e) {
+            /*
+             * Three cases here
+             *   - We're the first split, so we make a new one and set start to 0 and end to NOW
+             *   - We're an unremarkable split so we simply update the end time of the current split
+             *   - The button has been clicked twice in a row without the user interacting the the split datagrid.
+             *     This means we should me "smart" and create a new split spanning
+             *             [current split's end] <----------> [Video Player Current Time]
+             *
+             *     ADDITIONALLY, we should only be "smart" if the current split is the latest one.
+             *
+             */
+
+            var currentPlayerTime = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
+            int splitIdx;
             SplitEntry newSplit;
-            if (_currentSplit == null) {
+
+            if (currentSplit == null) {
                 newSplit = new SplitEntry {
                     splitStart = TimeSpan.Zero,
                     splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time)
                 };
-                _currentSplit = newSplit;
+                currentSplit = newSplit;
                 this.viewModel.splits.Add(newSplit);
+            } else {
+                splitIdx = this.viewModel.splits.IndexOf(currentSplit);
 
-            }
-            else {
-                int splitIdx = this.viewModel.splits.IndexOf(_currentSplit);
-                this._currentSplit.splitEnd = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
+                if (this._wasEndSplitClickedTwice && isCurrentSplitLast()) {
 
-                if (splitIdx == 0) {
-                    this._currentSplit.splitStart = TimeSpan.Zero;
+                    newSplit = new SplitEntry {
+                        splitStart = this.currentSplit.splitEnd,
+                        splitEnd = currentPlayerTime
+                    };
+                    currentSplit = newSplit;
+                    this.viewModel.splits.Add(newSplit);
+
                 } else {
-                    // We're not the first split, so steal the beginning from the last split we made.
-                    if (this._currentSplit.splitStart == TimeSpan.Zero) {
-                        this._currentSplit.splitStart = this.viewModel.splits[splitIdx - 1].splitEnd;
-                    }
-
-                    if (splitIdx == this.viewModel.splits.Count - 1) { // Last split
-                        this._currentSplit = new SplitEntry();
-                        this.dgSplits.SelectedItem = this._currentSplit;
-                    }
-                    else {
-                        this._currentSplit = this.viewModel.splits[splitIdx + 1];
-                        this.dgSplits.SelectedItem = this._currentSplit;
+                    this.currentSplit.splitEnd = currentPlayerTime;
+                    if (!isCurrentSplitLast()) {
+                        this.currentSplit = this.viewModel.splits[splitIdx + 1];
                     }
                 }
+
             }
+
+            splitIdx = this.viewModel.splits.IndexOf(this.currentSplit);
+            this.viewModel.splits[splitIdx] = null;
+            this.viewModel.splits[splitIdx] = currentSplit;
+            this.dgSplits.SelectedIndex = splitIdx;
+            this._wasEndSplitClickedTwice = true;
+            this.dgSplits.ItemsSource = viewModel.splits;
+        }
+
+        private bool isCurrentSplitLast() {
+            return this.viewModel.splits.IndexOf(this.currentSplit) == this.viewModel.splits.Count - 1;
         }
 
         private void onBeginSplitClick(object? sender, RoutedEventArgs e) {
-            if (_currentSplit == null) {
+            this._wasEndSplitClickedTwice = false;
+
+            if (currentSplit == null) {
               var newSplit = newSplitAtCurrentTime();
                 this.viewModel.splits.Add(newSplit);
                 this.dgSplits.SelectedItem = newSplit;
             } else {
-                _currentSplit.splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
+                int splitIdx = this.viewModel.splits.IndexOf(currentSplit);
+                currentSplit.splitStart = TimeSpan.FromMilliseconds(this.viewModel.vlcMediaPlayer.Time);
+                this.viewModel.splits[splitIdx] = null;
+                this.viewModel.splits[splitIdx] = currentSplit;
             }
+
         }
 
         private async void onSaveSplitsClicked(object? sender, RoutedEventArgs e) {
