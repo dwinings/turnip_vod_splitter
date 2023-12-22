@@ -6,12 +6,12 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-
     <OutputType>WinExe</OutputType>
     <RootNamespace>TurnipVodSplitter</RootNamespace>
     <AssemblyName>TurnipVodSplitter</AssemblyName>
     <ApplicationRevision>1</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <ApplicationIcon>assets\small_turnip.ico</ApplicationIcon>
     <UseApplicationTrust>false</UseApplicationTrust>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
@@ -47,6 +47,7 @@
   <PropertyGroup>
     <VlcWindowsX64Enabled>true</VlcWindowsX64Enabled>
     <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+    <PackageIcon>assets\turnip_256.ico</PackageIcon>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net7.0-windows|AnyCPU'">
     <DebugType>embedded</DebugType>
@@ -121,5 +122,23 @@
     <PackageReference Include="VideoLAN.LibVLC.Windows">
       <Version>3.0.18</Version>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
 </Project>
