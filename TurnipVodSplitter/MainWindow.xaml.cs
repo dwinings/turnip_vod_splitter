@@ -1,13 +1,11 @@
 ﻿using LibVLCSharp.Shared;
-using LibVLCSharp.WPF;
 
 using System;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Configuration;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,9 +13,6 @@ using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Threading;
 using CsvHelper;
-using CsvHelper.Configuration;
-using TurnipVodSplitter.Properties;
-using DragEventArgs = System.Windows.DragEventArgs;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = System.Windows.Forms.OpenFileDialog;
@@ -45,11 +40,14 @@ namespace TurnipVodSplitter {
         public MainWindow() {
             InitializeComponent();
 
+            this.vlcVideoView.LayoutUpdated += delegate { resizePlayer(); };
             this.viewModel = this.DataContext as MainWindowViewModel ?? throw new InvalidOperationException("Invalid view model type.");
             this.viewModel.outputDirectory = Properties.Settings.Default.lastOutputDirectory ?? "";
             this.viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
             this.viewModel.vlcMediaPlayer.EnableHardwareDecoding = true;
-            this.viewModel.vlcMediaPlayer.PositionChanged += onVideoPositionChanged;
+            this.viewModel.vlcMediaPlayer.PositionChanged += (o, e) => Dispatcher.Invoke(delegate {
+                onVideoPositionChanged(o, e);
+            });
 
             string? currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName);
             this.viewModel.ffmpegPath = Downloader.FFMPEG_PATH;
@@ -119,11 +117,53 @@ namespace TurnipVodSplitter {
             }
         }
 
-        private void loadVodFile(System.Uri uri) {
+        private void loadVodFile(System.Uri uri, bool autoplay = false) {
+            EventHandler<MediaPlayerMediaChangedEventArgs> onMediaChanged = null;
+            EventHandler<MediaParsedChangedEventArgs> onMediaParsed = null;
+
+            onMediaParsed = delegate {
+                this.viewModel.vlcMediaPlayer.Media.ParsedChanged -= onMediaParsed;
+
+                this.Dispatcher.Invoke(() => {
+                    this.viewModel.vlcMediaPlayer.Volume = 0;
+                    this.viewModel.isMediaLoaded = true;
+                    resizePlayer();
+
+                    EventHandler<MediaPlayerPositionChangedEventArgs> onMediaPlayingFirstTime = null;
+                    onMediaPlayingFirstTime = delegate {
+                        ThreadPool.QueueUserWorkItem(delegate {
+                            this.viewModel.vlcMediaPlayer.Pause();
+                            this.viewModel.vlcMediaPlayer.PositionChanged -= onMediaPlayingFirstTime;
+                        });
+                    };
+
+                    ThreadPool.QueueUserWorkItem(delegate {
+                        if (autoplay) {
+                            this._isPaused = false;
+                        } else {
+                            this.viewModel.vlcMediaPlayer.PositionChanged += onMediaPlayingFirstTime;
+                            this._isPaused = true;
+                        }
+                        this.viewModel.vlcMediaPlayer.Play();
+                    });
+                });
+            };
+
+            onMediaChanged = delegate {
+                this.IsEnabled = true;
+                this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
+                this.viewModel.vlcMediaPlayer.Media.ParsedChanged += onMediaParsed;
+                this.viewModel.vlcMediaPlayer.Media.Parse();
+            };
+            
             this.viewModel.mediaContentPath = Uri.UnescapeDataString(uri.AbsolutePath);
             this.viewModel.vlcMediaPlayer.MediaChanged += onMediaChanged;
             this.IsEnabled = false;
-            this.viewModel.vlcMediaPlayer.Media = new Media(MainWindowViewModel.libVlc, uri);
+            this.viewModel.vlcMediaPlayer.Media?.Dispose();
+            this.viewModel.vlcMediaPlayer.Media = new Media(
+                MainWindowViewModel.libVlc,
+                uri, "--start-paused", "--input-fast-seek");
+
             this.viewModel.splits.Clear();
         }
 
@@ -132,13 +172,13 @@ namespace TurnipVodSplitter {
             using var dialog = new FolderBrowserDialog() {SelectedPath = startPath};
 
             dialog.ShowNewFolderButton = true;
-            DialogResult result = dialog.ShowDialog();
+            var result = dialog.ShowDialog();
 
-            if (result == System.Windows.Forms.DialogResult.OK) {
-                this.viewModel.outputDirectory = dialog.SelectedPath;
-                Properties.Settings.Default.lastOutputDirectory = dialog.SelectedPath;
-                Properties.Settings.Default.Save();
-            }
+            if (result != System.Windows.Forms.DialogResult.OK) return;
+
+            this.viewModel.outputDirectory = dialog.SelectedPath;
+            Properties.Settings.Default.lastOutputDirectory = dialog.SelectedPath;
+            Properties.Settings.Default.Save();
         }
 
         private void onBeginConvertClick(object? sender, RoutedEventArgs e) {
@@ -186,92 +226,106 @@ namespace TurnipVodSplitter {
 
         #region Video Player Logic
         private void onPlayClick(object? sender, RoutedEventArgs e) {
-            if (this.viewModel.vlcMediaPlayer.IsPlaying) {
-                this._isPaused = true;
-                this.viewModel.vlcMediaPlayer.Pause();
-            } else {
-                this._isPaused = false;
-                this.viewModel.vlcMediaPlayer.Play();
+            switch (this.viewModel.vlcMediaPlayer.State) {
+                case VLCState.Playing:
+                    this._isPaused = true;
+                    this.viewModel.vlcMediaPlayer.Pause();
+                    break;
+                case VLCState.Ended:
+                    loadVodFile(new Uri(this.viewModel.mediaContentPath), true);
+                    break;
+                case VLCState.NothingSpecial:
+                case VLCState.Opening:
+                case VLCState.Buffering:
+                case VLCState.Paused:
+                case VLCState.Stopped:
+                case VLCState.Error:
+                default:
+                    this._isPaused = false;
+                    this.viewModel.vlcMediaPlayer.Play();
+                    break;
             }
         }
 
-        private void onMediaChanged(object? sender, MediaPlayerMediaChangedEventArgs e) {
-            this.IsEnabled = true;
-            this.viewModel.vlcMediaPlayer.MediaChanged -= onMediaChanged;
-            this.viewModel.vlcMediaPlayer.Volume = 0;
-            this.viewModel.vlcMediaPlayer.Play();
-            this._isPaused = false;
+
+        private void resizePlayer() {
+            if (!(this.viewModel.vlcMediaPlayer.Media?.IsParsed ?? false)) { return; }
+
+            uint vidX = 0;
+            uint vidY = 0;
+            this.viewModel.vlcMediaPlayer.Size(0, ref vidX, ref vidY);
+            if (vidX == 0 || vidY == 0) { return; }
+            double yRatio = this.vlcVideoView.ActualHeight / vidY;
+            uint actualX = (uint)Math.Floor(vidX * yRatio);
+            this.vlcVideoView.Width = actualX;
         }
 
 
-        private void onSeekCompleted(object? sender, EventArgs e) {
-            this.Dispatcher.Invoke(() => {
-                // Only ever called one at a time... after calling SeekTo()
-                this.viewModel.vlcMediaPlayer.PositionChanged -= onSeekCompleted;
-                this.sliderMedia.Value = this.viewModel.vlcMediaPlayer.Position;
-            });
-        }
-
+        private bool _seeking = false;
         private void processDeferredScrubTick(object? sender, EventArgs e) {
-            if (this._trynaScrub != null) {
-                Console.WriteLine($@"{this._trynaScrub}");
-                var pos = this._trynaScrub.position;
-                this._trynaScrub = null;
 
-                this._videoScrubberIgnoreUpdates = false;
+            // If VLC is moving, don't make it move again. If we have no scrub attempts, nothing to be done.
+            if (this._seeking != false || this._trynaScrub == null) return;
 
-                this.viewModel.vlcMediaPlayer.PositionChanged += onSeekCompleted;
-                this.viewModel.vlcMediaPlayer.TimeChanged += (o, e) => {
-                    Console.WriteLine("TimeChanged was called");
-                };
+            Debug.WriteLine($@"{this._trynaScrub}");
 
-                this.viewModel.vlcMediaPlayer.SeekableChanged += (o, e) => {
-                    Console.WriteLine("SeekableChanged was fired.");
-                };
+            // Save this so that it doesn't get overwritten during our seek.
+            var scrub = this._trynaScrub;
+            this._trynaScrub = null;
+            this._seeking = true;
 
-                this.viewModel.vlcMediaPlayer.SeekTo(pos);
+            this.viewModel.vlcMediaPlayer.SeekTo(scrub.position);
+            if (scrub.dragEnded) {
+                this.viewModel.vlcMediaPlayer.SetPause(_isPaused);
             }
+            this._seeking = false;
         }
 
 
         private void onVideoPositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e) {
-            if (!this._videoScrubberIgnoreUpdates) {
-                this.Dispatcher.Invoke(() => {
-                    this.sliderMedia.Value = this.viewModel.vlcMediaPlayer.Position;
-                });
+            if (this._trynaScrub == null && !this._seeking) {
+                Debug.WriteLine("Update from VLC");
+                this.sliderMedia.ValueChanged -= onVideoScrubberPositionChanged;
+                this.sliderMedia.Value = this.viewModel.vlcMediaPlayer.Position;
+                this.sliderMedia.ValueChanged += onVideoScrubberPositionChanged;
             }
         }
 
 
-        private bool _videoScrubberIgnoreUpdates = false;
         private void endVideoScrubberDrag() {
-            var len = this.viewModel.vlcMediaPlayer.Length;
-            var ratio = this.sliderMedia.Value;
-
-            // Elaborate L + ratio joke
-            this._trynaScrub = new ScrubAttempt((long)(Math.Floor(len * ratio)));
+            scrubNow(true);
         }
 
+        private bool _dragging = false;
         private void startVideoScrubberDrag() {
-            _videoScrubberIgnoreUpdates = true;
-
+            this._dragging = true;
+            this.viewModel.vlcMediaPlayer.SetPause(true);
         }
 
         private void onVideoScrubberDragLeave(object? sender, DragCompletedEventArgs dragCompletedEventArgs) {
+            Debug.WriteLine("Drag Stop");
             endVideoScrubberDrag();
         }
 
         private void onVideoScrubberDragStarted(object? sender, DragStartedEventArgs e) {
-            startVideoScrubberDrag();
-
-        }
-
-        private void onVideoScrubberMouseDown(object? sender, MouseButtonEventArgs e) {
+            Debug.WriteLine("Drag Start");
             startVideoScrubberDrag();
         }
 
-        private void onVideoScrubberMouseUp(object? sender, MouseButtonEventArgs e) {
-            endVideoScrubberDrag();
+        private void scrubNow(bool endDrag = false) {
+            var len = this.viewModel.vlcMediaPlayer.Length;
+            var ratio = this.sliderMedia.Value;
+
+            // Elaborate L + ratio joke
+            this._trynaScrub = new ScrubAttempt((long)(Math.Floor(len * ratio)), endDrag);
+        }
+
+        private enum VideoPosUpdateSource {
+            VLC, User, Scrub
+        }
+
+        private void onVideoScrubberPositionChanged(object sender, RoutedPropertyChangedEventArgs<double> routedPropertyChangedEventArgs) {
+            scrubNow();
         }
         #endregion
 

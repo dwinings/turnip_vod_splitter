@@ -1,17 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Data;
+using LibVLCSharp.Shared;
 
 namespace TurnipVodSplitter.WpfValueConverters {
     internal class PlayPauseFaIcon : IValueConverter {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            bool isPlaying = (bool)value;
+            VLCState vlcState = (VLCState)value;
 
-            if (!isPlaying) {
+            if (vlcState is VLCState.Paused or VLCState.Stopped or VLCState.Ended or VLCState.NothingSpecial) {
                 return "Solid_Play";
             } else {
                 return "Solid_Pause";

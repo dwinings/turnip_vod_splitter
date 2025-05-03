@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:disable="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:turnip="clr-namespace:TurnipVodSplitter"
         xmlns:cv="clr-namespace:TurnipVodSplitter.WpfValueConverters"
@@ -9,9 +10,9 @@
         xmlns:vlc="clr-namespace:LibVLCSharp.Shared;assembly=LibVLCSharp"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:fa="http://schemas.fontawesome.com/icons/"
+        mc:Ignorable="d disable"
 
         WindowStyle="ThreeDBorderWindow"
-        mc:Ignorable="d"
         Title="Turnip Vod Splitter" Height="700" Width="1000"
         PreviewKeyDown="Window_PreviewKeyDown"
         Loaded="onLoaded">
@@ -73,7 +74,9 @@
                               Grid.Row="1" 
                               MediaPlayer="{Binding vlcMediaPlayer}" 
                               Margin="0,5"
-                              Background="Black" />
+                              Background="Black" 
+                              IsEnabled="{Binding isMediaLoaded}"
+                              />
             <DockPanel Grid.Row="2">
                 <!-- Right side of the control bar -->
                 <StackPanel 
@@ -90,9 +93,11 @@
                             Margin="5,0,5,0"
                             HorizontalAlignment="Center"
                             ToolTip="Play/Pause"
-                            Width="{StaticResource standardButtonWidth}">
+                            Width="{StaticResource standardButtonWidth}"
+                            IsEnabled="{Binding isMediaLoaded}"
+                            >
                         <fa:FontAwesome 
-                            Icon="{Binding Path=vlcMediaPlayer.IsPlaying,
+                            Icon="{Binding Path=vlcMediaPlayer.State,
                                            Converter={StaticResource PlayPauseFaIcon}}" />
                     </Button>
 
@@ -100,7 +105,9 @@
                     <Button Name="btnSplitBegin"
                             Click="onBeginSplitClick"
                             ToolTip="Set beginning of current split"
-                            Width="{StaticResource standardButtonWidth}">
+                            Width="{StaticResource standardButtonWidth}"
+                            IsEnabled="{Binding isMediaLoaded}"
+                            >
                         <StackPanel Orientation="Horizontal">
                             <fa:FontAwesome 
                                 
@@ -111,7 +118,9 @@
                     <Button Name="btnEndSplit" 
                             Click="onEndSplitClick"
                             ToolTip="Set end of current split"
-                            Width="35">
+                            Width="35"
+                            IsEnabled="{Binding isMediaLoaded}"
+                            >
                         <fa:FontAwesome Icon="Solid_ChevronRight" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
@@ -131,13 +140,19 @@
                 <Slider Name="sliderMedia"
                     DockPanel.Dock="Left"
                     FlowDirection="LeftToRight"
-                    Minimum="0"
-                    Maximum="1"
-                    MouseDown="onVideoScrubberMouseDown"
-                    MouseUp="onVideoScrubberMouseUp"
+                    Minimum="0.0"
+                    Maximum="1.0"
+                    IsSnapToTickEnabled="False"
+                    TickFrequency="0.01"
+                    d:MouseLeftButtonDown="onVideoScrubberMouseDown"
+                    d:MouseLeftButtonUp="onVideoScrubberMouseUp"
+                    ValueChanged="onVideoScrubberPositionChanged"
                     Thumb.DragStarted="onVideoScrubberDragStarted"
                     Thumb.DragCompleted="onVideoScrubberDragLeave"
-                    VerticalAlignment="Center" />
+                    VerticalAlignment="Center" 
+                    IsEnabled="{Binding isMediaLoaded}" 
+                    IsMoveToPointEnabled="True"
+                    />
             </DockPanel>
         </Grid>
 

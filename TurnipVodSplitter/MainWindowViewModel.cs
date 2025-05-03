@@ -1,12 +1,7 @@
 ﻿using LibVLCSharp.Shared;
-using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using TurnipVodSplitter.Properties;
 
 namespace TurnipVodSplitter {
@@ -74,6 +69,12 @@ namespace TurnipVodSplitter {
         public bool isTextFieldFocused {
           get => _isTextFieldFocused;
           set => SetField(ref _isTextFieldFocused, value);
+        }
+
+        private bool _isMediaLoaded = false;
+        public bool isMediaLoaded {
+            get => _isMediaLoaded;
+            set => SetField(ref _isMediaLoaded, value);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

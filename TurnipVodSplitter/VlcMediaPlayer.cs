@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 
 namespace TurnipVodSplitter {
@@ -14,8 +10,10 @@ namespace TurnipVodSplitter {
             this.LengthChanged += (s, e) => OnPropertyChanged("Length");
             this.TimeChanged += (s, e) => OnPropertyChanged("Time");
             this.MediaChanged += (s, e) => OnPropertyChanged("Media");
-            this.Playing += (s, e) => OnPropertyChanged("IsPlaying");
-            this.Paused += (s, e) => OnPropertyChanged("IsPlaying");
+            this.Playing += (s, e) => OnPropertyChanged("State");
+            this.Paused += (s, e) => OnPropertyChanged("State");
+            this.EndReached += delegate { OnPropertyChanged("State"); };
+            this.EnableHardwareDecoding = true;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
