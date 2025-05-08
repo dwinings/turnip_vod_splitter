@@ -1,11 +1,22 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using LibVLCSharp.Shared;
 
 namespace TurnipVodSplitter {
     public class VlcMediaPlayer: MediaPlayer, INotifyPropertyChanged {
-        public VlcMediaPlayer() : base(new LibVLC()) {
+        public readonly LibVLC libvlc;
+
+        public VlcMediaPlayer() : this(new LibVLC(
+            "--repeat",
+            "--avcodec-threads=1"
+            )) {
+        }
+
+        public VlcMediaPlayer(LibVLC libvlc) : base(libvlc) {
+            this.libvlc = libvlc;
             this.PositionChanged += (s, e) => OnPropertyChanged("Position");
             this.LengthChanged += (s, e) => OnPropertyChanged("Length");
             this.TimeChanged += (s, e) => OnPropertyChanged("Time");
@@ -14,6 +25,24 @@ namespace TurnipVodSplitter {
             this.Paused += (s, e) => OnPropertyChanged("State");
             this.EndReached += delegate { OnPropertyChanged("State"); };
             this.EnableHardwareDecoding = true;
+            this.FileCaching = 60000;
+
+            this.libvlc.Log += (s, e) => {
+                if (e.Level >= LogLevel.Notice) {
+                    Debug.WriteLine(e.FormattedLog);
+                }
+            };
+        }
+
+        public TimeSpan PositionTs {
+            get {
+                if (this.Media == null) {
+                    return TimeSpan.Zero;
+                }
+
+                var currentMillis = (long)(this.Length * this.Position);
+                return TimeSpan.FromMilliseconds(currentMillis);
+            }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

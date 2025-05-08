@@ -14,7 +14,6 @@
 
         WindowStyle="ThreeDBorderWindow"
         Title="Turnip Vod Splitter" Height="700" Width="1000"
-        PreviewKeyDown="Window_PreviewKeyDown"
         Loaded="onLoaded">
     <Window.DataContext>
         <turnip:MainWindowViewModel />
@@ -22,6 +21,7 @@
     <Window.Resources>
         <cv:PlayPauseFaIcon x:Key="PlayPauseFaIcon"></cv:PlayPauseFaIcon>
         <cv:LongMsToTime x:Key="LongMsToTime"></cv:LongMsToTime>
+        <cv:ConvertTimeSpan x:Key="ConvertTimeSpan"></cv:ConvertTimeSpan>
         <fa:ImageSourceConverter x:Key="ImageSourceConverter"></fa:ImageSourceConverter>
 
         <Style TargetType="DockPanel">
@@ -32,7 +32,61 @@
         <sys:Double x:Key="standardButtonWidth">35</sys:Double>
     </Window.Resources>
 
+    <Window.InputBindings>
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding LoadVodFileCommand}"/>
+        <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding LoadSplitsCommand}"/>
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding BeginConvertCommand}"/> 
+        <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveSplitsCommand}" />
+        <KeyBinding Gesture="Ctrl+Space" Command="{Binding SplitNowCommand}" />
+        <KeyBinding Gesture="Ctrl+P" Command="{Binding TogglePlayCommand}" />
+    </Window.InputBindings>
     <!-- GridSplitter -->
+    <DockPanel Margin="0">
+    <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open Video" Command="{Binding LoadVodFileCommand}" 
+                          ToolTip="Open a video file for playback." 
+                          InputGestureText="Ctrl+O" />
+                <MenuItem Header="_Split Video" 
+                          Command="{Binding BeginConvertCommand}" 
+                          ToolTip="Break video file into defined chunks." 
+                          InputGestureText="Ctrl+S"/>
+                <MenuItem Header="Open S_plits" 
+                          Command="{Binding LoadSplitsCommand}" 
+                          ToolTip="Open a CSV file containing split data." 
+                          InputGestureText="Ctrl+Shift+O"/>
+                <MenuItem Header="S_ave Splits" 
+                          Command="{Binding SaveSplitsCommand}"
+                          ToolTip="Save current splits to a file." 
+                          InputGestureText="Ctrl+Shift+S"/>
+                <MenuItem Header="Vod History" ItemsSource="{Binding vodHistory}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="{x:Type MenuItem}">
+                            <Setter Property="Header" Value="{Binding .}"/>
+                            <Setter Property="Command" Value="{Binding RelativeSource={RelativeSource AncestorType=turnip:MainWindow}, Path=openVodHistoryCommand}"/>
+                            <Setter Property="CommandParameter" Value="{Binding .}" />
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <MenuItem Header="Clear Vod History" 
+                          Command="{Binding ClearVodHistoryCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="_Split Here" 
+                          Command="{Binding SplitNowCommand}" 
+                          ToolTip="Add a split at the current time." 
+                          InputGestureText="Ctrl+Space"/>
+            </MenuItem>
+            <MenuItem Header="_Playback">
+                <MenuItem Header="Toggle _Playback" 
+                          Command="{Binding TogglePlayCommand}" 
+                          InputGestureText="Ctrl+P" ToolTip="Toggle Play/Pause of loaded video" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Command="{Binding ShowAboutWindowCommand}"/>
+            </MenuItem>
+    </Menu>    
+
     <Grid Margin="10,10" ShowGridLines="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="2*" />
@@ -50,7 +104,7 @@
                        LastChildFill="True">
                 <Button Name="btnOpenFile"
                         DockPanel.Dock="Right" 
-                        Click="onOpenFileClick"
+                        Command="{Binding LoadVodFileCommand}"
                         ToolTip="Open source VOD"
                         Width="40"
                         Margin="5,0,0,0">
@@ -63,7 +117,8 @@
                 </Label>
                 <Label 
                     DockPanel.Dock="Left"
-                    Content="{Binding Path=mediaContentPath}" 
+
+                    Content="{Binding Path=MediaContentPath}" 
                     BorderBrush="Black"
                     VerticalContentAlignment="Center"
                     BorderThickness="1">
@@ -72,12 +127,13 @@
 
             <vlcwpf:VideoView Name="vlcVideoView" 
                               Grid.Row="1" 
-                              MediaPlayer="{Binding vlcMediaPlayer}" 
+                              MediaPlayer="{Binding VlcPlayer}" 
                               Margin="0,5"
                               Background="Black" 
-                              IsEnabled="{Binding isMediaLoaded}"
+                              Width="0"
+                              IsEnabled="{Binding IsMediaLoaded}"
                               />
-            <DockPanel Grid.Row="2">
+            <DockPanel Name="videoControlPanel" Grid.Row="2" IsEnabled="{Binding IsMediaLoaded}">
                 <!-- Right side of the control bar -->
                 <StackPanel 
                     DockPanel.Dock="Right"
@@ -89,50 +145,34 @@
                     </StackPanel.Resources>
 
                     <Button Name="btnPlay" 
-                            Click="onPlayClick" 
+                            Command="{Binding TogglePlayCommand}"
                             Margin="5,0,5,0"
                             HorizontalAlignment="Center"
                             ToolTip="Play/Pause"
                             Width="{StaticResource standardButtonWidth}"
-                            IsEnabled="{Binding isMediaLoaded}"
                             >
                         <fa:FontAwesome 
-                            Icon="{Binding Path=vlcMediaPlayer.State,
+                            Icon="{Binding Path=VlcPlayer.State,
                                            Converter={StaticResource PlayPauseFaIcon}}" />
                     </Button>
 
-
-                    <Button Name="btnSplitBegin"
-                            Click="onBeginSplitClick"
-                            ToolTip="Set beginning of current split"
-                            Width="{StaticResource standardButtonWidth}"
-                            IsEnabled="{Binding isMediaLoaded}"
-                            >
-                        <StackPanel Orientation="Horizontal">
-                            <fa:FontAwesome 
-                                
-                                Icon="Solid_ChevronLeft"
-                                VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Name="btnEndSplit" 
-                            Click="onEndSplitClick"
-                            ToolTip="Set end of current split"
+                    <Button Name="btnSplit" 
+                            Command="{Binding SplitNowCommand}"
+                            ToolTip="Mark a split boundary here."
                             Width="35"
-                            IsEnabled="{Binding isMediaLoaded}"
                             >
-                        <fa:FontAwesome Icon="Solid_ChevronRight" VerticalAlignment="Center" />
+                        <fa:FontAwesome Icon="Solid_HandScissors" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
                 <Label Name="labelTotalDuration" DockPanel.Dock="Right"
-                   Content="{Binding Path=vlcMediaPlayer.Length, 
+                   Content="{Binding Path=VlcPlayer.Length, 
                                      Mode=OneWay, 
                                      Converter={StaticResource LongMsToTime}}"
                    VerticalAlignment="Center" />
 
                 <!-- Left side of the control bar -->
                 <Label Name="labelSeekPos" DockPanel.Dock="Left"
-                   Content="{Binding Path=vlcMediaPlayer.Time, 
+                   Content="{Binding Path=VlcPlayer.Time, 
                                      Mode=OneWay, 
                                      Converter={StaticResource LongMsToTime}}"
                    HorizontalAlignment="Left"
@@ -150,7 +190,6 @@
                     Thumb.DragStarted="onVideoScrubberDragStarted"
                     Thumb.DragCompleted="onVideoScrubberDragLeave"
                     VerticalAlignment="Center" 
-                    IsEnabled="{Binding isMediaLoaded}" 
                     IsMoveToPointEnabled="True"
                     />
             </DockPanel>
@@ -177,7 +216,7 @@
                              MaxLines="1"
                              TextWrapping="NoWrap" 
                              Margin="10,0" Width="300"
-                             Text="{Binding Path=eventName}"
+                             Text="{Binding Path=EventName}"
                              GotKeyboardFocus="onTextFieldFocused"
                              LostKeyboardFocus="onTextFieldLostFocus"
                              HorizontalAlignment="Left">
@@ -190,17 +229,23 @@
                             <Setter Property="Margin" Value="2,0" />
                         </Style>
                     </StackPanel.Resources>
-                    <Button Name="btnSaveSplits"
+                        <Button Name="btnCopySplits"
+                                ToolTip="Save Splits To Clipboard (Youtube chapter format)"
+                                Command="{Binding SaveYoutubeToClipboardCommand}"
+                                Width="{StaticResource standardButtonWidth}">
+                        <fa:FontAwesome Icon="Solid_Clipboard" />
+                        </Button>
+                        <Button Name="btnSaveSplits"
                             ToolTip="Save Splits"
-                            Click="onSaveSplitsClicked"
+                            Command="{Binding SaveSplitsCommand}"
                             Width="{StaticResource standardButtonWidth}">
-                        <fa:FontAwesome Icon="Solid_Save" />
+                            <fa:FontAwesome Icon="Solid_Save" />
 
-                    </Button>
+                        </Button>
 
-                    <Button Name="btnLoadSplits"
+                        <Button Name="btnLoadSplits"
                             ToolTip="Load Splits"
-                            Click="onLoadSplitsClicked"
+                            Command="{Binding LoadSplitsCommand}"
                             Width="{StaticResource standardButtonWidth}">
                         <fa:FontAwesome Icon="Solid_FolderOpen" />
                     </Button>
@@ -211,20 +256,24 @@
 
             <DataGrid Grid.Row="1"
                       Name="dgSplits"
-                      ItemsSource="{Binding splits}"
+                      ItemsSource="{Binding Splits.Splits}"
                       AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="True"
                       Margin="0,5,0,5"
                       SelectionMode="Single"
-                      SelectionChanged="onSplitSelectionChanged"
+                      d:SelectionChanged="onSplitSelectionChanged"
                       BeginningEdit="onTextFieldFocused"
                       CellEditEnding="onTextFieldLostFocus"
                       RowEditEnding="onTextFieldLostFocus"
                       >
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding splitStartStr}" />
-                    <DataGridTextColumn Header="Split End" MinWidth="110" Binding="{Binding splitEndStr}" />
-                    <DataGridTextColumn Header="Port 1" MinWidth="110" Binding="{Binding Path=player1}" />
-                    <DataGridTextColumn Header="Port 4" MinWidth="110" Binding="{Binding Path=player2}" />
+                    <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding Path=SplitStart, Converter={StaticResource ConvertTimeSpan}}" />
+                    <DataGridTextColumn Header="Split End" MinWidth="110" Binding="{Binding Path=SplitEnd, Converter={StaticResource ConvertTimeSpan}}" />
+                    <DataGridTextColumn Header="P1" MinWidth="110" Binding="{Binding Path=Player1}" />
+                    <DataGridTextColumn Header="P2" MinWidth="110" Binding="{Binding Path=Player2}" />
+                    <DataGridCheckBoxColumn Header="Skip?" Binding="{Binding Path=SkipSplit}"/>
+                    <DataGridTextColumn Header="Description" Width="*"  Binding="{Binding Path=Description}"/>
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -237,11 +286,11 @@
 
                 <Button Name="btnBeginConvert" 
                         DockPanel.Dock="Right" 
-                        IsEnabled="False"
+                        IsEnabled="{Binding CanSplitVideo}"
                         Width="80"
                         Margin="5,0,0,0"
                         VerticalAlignment="Stretch" 
-                        Click="onBeginConvertClick">
+                        Command="{Binding BeginConvertCommand}">
                     <StackPanel Orientation="Horizontal">
                         <fa:FontAwesome Icon="Solid_Cut"
                                         VerticalAlignment="Center"/>
@@ -260,9 +309,10 @@
                 </Button>
                 <TextBox Name="tbOutputDir" VerticalAlignment="Stretch" IsReadOnly="True" IsTabStop="False"
                      IsManipulationEnabled="False" BorderBrush="Black" BorderThickness="1" Padding="5,0,0,0"
-                     Text="{Binding Path=outputDirectory, Mode=OneWay}" Focusable="False"
+                     Text="{Binding Path=OutputDirectory, Mode=OneWay}" Focusable="False"
                      VerticalContentAlignment="Center" />
             </DockPanel>
         </Grid>
     </Grid>
+    </DockPanel>
 </Window>

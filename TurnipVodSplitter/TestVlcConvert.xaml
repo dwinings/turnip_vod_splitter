@@ -1,0 +1,14 @@
+﻿<Window x:Class="TurnipVodSplitter.TestVlcConvert"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TurnipVodSplitter"
+        Title="TestVlcConvert" Height="450" Width="800">
+    <DockPanel>
+        <Grid>
+            <TextBox Name="fileName" Text="C:\Users\Wisp\Videos\2024-12-07 18-48-36.mp4" />
+            <Button Name="btnGo" Width ="100" Height ="100" Click="BtnGo_OnClick">Go</Button>
+        </Grid>
+    </DockPanel>
+</Window>

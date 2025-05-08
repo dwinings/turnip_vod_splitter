@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "TurnipVodSplitter": {
+      "commandName": "Project",
+      "hotReloadEnabled": false
+    },
+    "AppWithFile": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\Users\\Wisp\\Videos\\2024-12-09 12-34-01.mp4\""
+    }
+  }
+}

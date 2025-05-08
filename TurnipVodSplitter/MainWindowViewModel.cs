@@ -1,80 +1,164 @@
-﻿using LibVLCSharp.Shared;
+﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using TurnipVodSplitter.Properties;
 
 namespace TurnipVodSplitter {
-    public class MainWindowViewModel : INotifyPropertyChanged {
-        public static LibVLC libVlc = new LibVLC();
-        private VlcMediaPlayer _vlcMediaPlayer = new VlcMediaPlayer();
-        public VlcMediaPlayer vlcMediaPlayer { get { return _vlcMediaPlayer; } }
+    public partial class MainWindowViewModel : ObservableObject {
+        public MainWindowViewModel() {
+            this.VlcPlayer.LengthChanged += delegate {
+                this.Splits.MediaLength = TimeSpan.FromMilliseconds(this.VlcPlayer.Length);
+            };
 
+            this.VlcPlayer.TimeChanged += delegate {
+                this.OnPropertyChanged(nameof(CurrentSplit));
+                this.OnPropertyChanged(nameof(CurrentSplitIdx));
+            };
 
-        private readonly BindingList<SplitEntry> _splits = new BindingList<SplitEntry>();
-        public BindingList<SplitEntry> splits => this._splits;
-
-        private string? _mediaContentPath;
-
-        public string mediaContentPath {
-            get => this._mediaContentPath ?? "";
-            set {
-                this._mediaContentPath = value;
-                Settings.Default.lastVodLoaded = _mediaContentPath;
-                Settings.Default.Save();
-                OnPropertyChanged("mediaContentPath");
-
-            }
         }
 
-        private string? _outputDirectory;
-        public string outputDirectory {
-            get => _outputDirectory ?? "";
-            set {
-                if (value == _outputDirectory) return;
-                _outputDirectory = value;
-                Settings.Default.lastOutputDirectory = _outputDirectory;
-                Settings.Default.Save();
-                OnPropertyChanged("outputDirectory");
-            }
-        }
+        [ObservableProperty]
+        private VlcMediaPlayer vlcPlayer = new() {EnableHardwareDecoding = true};
 
-        private string? _ffmpegPath;
 
-        public string ffmpegPath {
-            get => _ffmpegPath ?? "";
-            set {
-                if (value == _ffmpegPath) return;
-                _ffmpegPath = value;
-                OnPropertyChanged("ffmpegPath");
-            }
-        }
+        [ObservableProperty]
+        private SplitCollection splits = new();
 
-        private string _eventName = "";
-        public string eventName {
+        public SplitEntry? CurrentSplit {
             get {
-                if (_eventName == null) {
-                    return "";
+                return this.Splits.At(this.VlcPlayer.PositionTs);
+            }
+        }
+
+        public int CurrentSplitIdx => this.Splits.GetSplitIndexForTime(this.VlcPlayer.PositionTs);
+
+        [ObservableProperty] private string? mediaContentPath;
+
+        partial void OnMediaContentPathChanging(string? value) {
+            if (value != null) {
+                Settings.Default.lastVodLoaded = value;
+                Settings.Default.Save();
+            }
+        }
+
+        [ObservableProperty]
+        private string? outputDirectory;
+
+        partial void OnOutputDirectoryChanged(string? value) {
+            Settings.Default.lastOutputDirectory = value;
+            Settings.Default.Save();
+        }
+
+        [ObservableProperty]
+        private string ffmpegPath = "";
+
+
+        [ObservableProperty]
+        private string eventName = "";
+
+        [ObservableProperty]
+        private bool isTextFieldFocused = false;
+
+        [ObservableProperty]
+        private bool isMediaLoaded = false;
+
+        [ObservableProperty] private bool canSplitVideo = false;
+
+        private ObservableCollection<string>? _vodHistory = null;
+        public ObservableCollection<string> vodHistory {
+            get {
+                if (_vodHistory == null) {
+                    var propVods = Properties.Settings.Default.recentVods;
+                    if (propVods == null) {
+                        _vodHistory = [];
+                    } else {
+                        _vodHistory = new ObservableCollection<string>(propVods.Cast<string>());
+                    }
                 }
-                return _eventName;
-            }
-            set {
-                if (value == _eventName) return;
-                _eventName = value;
-                OnPropertyChanged("eventName");
+
+                return _vodHistory;
             }
         }
 
-        private bool _isTextFieldFocused = false;
-        public bool isTextFieldFocused {
-          get => _isTextFieldFocused;
-          set => SetField(ref _isTextFieldFocused, value);
+
+
+        [RelayCommand]
+        public void ClearVodHistory() {
+            vodHistory.Clear();
+            PersistVodHistory();
         }
 
-        private bool _isMediaLoaded = false;
-        public bool isMediaLoaded {
-            get => _isMediaLoaded;
-            set => SetField(ref _isMediaLoaded, value);
+        [RelayCommand]
+        public void SplitNow() {
+            var position =
+                TimeSpan.FromMilliseconds(Math.Floor(this.VlcPlayer.Position * this.VlcPlayer.Length));
+            this.Splits.NewSplitAtPoint(position);
+        }
+
+        [RelayCommand]
+        public void DeleteSplit() {
+            this.Splits.DeleteSplitAtPoint(this.VlcPlayer.PositionTs);
+        }
+
+        [RelayCommand]
+        public void SaveYoutubeToClipboard() {
+            System.Windows.Clipboard.SetText(this.Splits.YoutubeChapterFormat());
+        }
+
+        [RelayCommand]
+        public async Task SaveSplits()  {
+            SaveFileDialog saveFileDialog = new SaveFileDialog() {
+                RestoreDirectory = true,
+                DereferenceLinks = false,
+                ValidateNames = false,
+                Filter = "CSV Files|*.csv",
+                AddExtension = true,
+                SupportMultiDottedExtensions = true
+            };
+
+            if (saveFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                await this.Splits.saveToFile(saveFileDialog.OpenFile());
+
+            }
+        }
+
+        [RelayCommand]
+        public async Task LoadSplits() {
+            var openFileDialog = new OpenFileDialog() {
+                RestoreDirectory = true,
+                DereferenceLinks = false,
+                ValidateNames = false,
+                Multiselect = false,
+                Filter = "CSV Files|*.csv",
+                SupportMultiDottedExtensions = true
+            };
+
+            if (openFileDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                await this.Splits.LoadFromFile(openFileDialog.OpenFile());
+            }
+        }
+
+
+        // Set externally
+        [ObservableProperty] private ICommand? loadVodFileCommand;
+        [ObservableProperty] private ICommand? showAboutWindowCommand;
+        [ObservableProperty] private ICommand? beginConvertCommand;
+        [ObservableProperty] private ICommand? togglePlayCommand;
+
+
+
+        public void PersistVodHistory() {
+            Properties.Settings.Default.recentVods = new StringCollection();
+            Properties.Settings.Default.recentVods.AddRange(vodHistory.ToArray());
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -88,6 +172,10 @@ namespace TurnipVodSplitter {
             field = value;
             OnPropertyChanged(propertyName);
             return true;
+        }
+
+        protected void expireProperties() {
+            this.OnPropertyChanged();
         }
     }
 }

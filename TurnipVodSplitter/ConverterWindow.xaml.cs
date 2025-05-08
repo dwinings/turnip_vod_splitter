@@ -24,16 +24,16 @@ namespace TurnipVodSplitter {
             "C:\\Users\\Wisp\\Desktop\\ffmpeg.exe",
             new SplitEntry[] {
                 new SplitEntry() {
-                    splitStart = TimeSpan.Zero,
-                    splitEnd = TimeSpan.FromSeconds(30),
-                    player1 = "me",
-                    player2 = "them"
+                    SplitStart = TimeSpan.Zero,
+                    SplitEnd = TimeSpan.FromSeconds(30),
+                    Player1 = "me",
+                    Player2 = "them"
                 },
                 new SplitEntry() {
-                    splitStart = TimeSpan.FromSeconds(30),
-                    splitEnd = TimeSpan.FromSeconds(60),
-                    player1 = "me",
-                    player2 = "them"
+                    SplitStart = TimeSpan.FromSeconds(30),
+                    SplitEnd = TimeSpan.FromSeconds(60),
+                    Player1 = "me",
+                    Player2 = "them"
                 }
             },
             "C:\\Users\\Wisp\\test\\00h00m00s to 00h41m40s treythetrashman 28 Mar 2023.mp4",
