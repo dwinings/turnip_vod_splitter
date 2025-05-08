@@ -168,7 +168,7 @@ namespace TurnipVodSplitter {
                     EventHandler<MediaPlayerPositionChangedEventArgs>? onMediaPlayingFirstTime = null;
                     onMediaPlayingFirstTime = delegate {
                         ThreadPool.QueueUserWorkItem(delegate {
-                            this.viewModel.VlcPlayer.Pause();
+                            this.viewModel.VlcPlayer.SetPause(true);
                             this.viewModel.VlcPlayer.PositionChanged -= onMediaPlayingFirstTime;
                         });
                     };
@@ -224,9 +224,8 @@ namespace TurnipVodSplitter {
                 return;
             }
 
-            if (this.viewModel.VlcPlayer.CanPause) {
-                this.viewModel.VlcPlayer.Pause();
-            }
+            this.viewModel.VlcPlayer.SetPause(true);
+            this._isPaused = true;
 
             var converterWindow = new ConverterWindow(
                 this.viewModel.FfmpegPath,
@@ -285,7 +284,7 @@ namespace TurnipVodSplitter {
             switch (this.viewModel.VlcPlayer.State) {
                 case VLCState.Playing:
                     this._isPaused = true;
-                    this.viewModel.VlcPlayer.Pause();
+                    this.viewModel.VlcPlayer.SetPause(true);
                     break;
                 case VLCState.Ended:
                     loadVodFile(new Uri(this.viewModel.MediaContentPath), true);
@@ -298,7 +297,7 @@ namespace TurnipVodSplitter {
                 case VLCState.Error:
                 default:
                     this._isPaused = false;
-                    this.viewModel.VlcPlayer.Play();
+                    this.viewModel.VlcPlayer.SetPause(false);
                     break;
             }
         }
@@ -383,6 +382,8 @@ namespace TurnipVodSplitter {
         [RelayCommand]
         void ShowAboutWindow() {
             var aboutWindow = new AboutWindow();
+            this.viewModel.VlcPlayer.SetPause(true);
+            this._isPaused = true;
             this.IsEnabled = false;
             aboutWindow.ShowDialog();
             this.IsEnabled = true;

@@ -18,7 +18,7 @@ namespace TurnipVodSplitter {
         private readonly IEnumerable<SplitEntry> _splits;
         public ObservableCollection<ConversionInfo> conversions { get; } = new ObservableCollection<ConversionInfo>();
 
-        private static readonly string FFMPEG_BASE_ARGS = "-hide_banner -loglevel info -nostats -y -i";
+        private static readonly string FFMPEG_BASE_ARGS = "-hide_banner -loglevel info -nostats -y ";
 
         public ConverterWindow() : this(
             "C:\\Users\\Wisp\\Desktop\\ffmpeg.exe",
@@ -67,17 +67,35 @@ namespace TurnipVodSplitter {
             return Path.Combine(this._outputDirectory, fileBaseName);
         }
 
+        private TimeSpan getStartSeekTs(SplitEntry split) {
+            return TimeSpan.FromMilliseconds(Math.Max(0,
+                split.SplitStart.TotalMilliseconds - TimeSpan.FromSeconds(30).TotalMilliseconds));
+        }
 
         private void Convert() {
             int procIdx = 0;
 
             foreach (var split in this._splits) {
+                if (!split.Validate()) {
+                    Debug.WriteLine($"Warning, could not validate split {split.splitName}");
+                    continue;
+                }
+
                 var outputFile = OutputFile(split.splitName);
+
+                var seekTime = getStartSeekTs(split);
+                var startTime = split.SplitStart - seekTime;
+                var endTime = split.SplitEnd - seekTime;
 
                 string args = String.Join(" ", new string[] {
                     ConverterWindow.FFMPEG_BASE_ARGS,
+                    $"-ss {seekTime.VideoTimestampFormat()}",
+                    "-i",
                     $"\"{this._inputFile}\"",
-                    split.ffmpegArgsForSplit,
+                    $"-ss {startTime.VideoTimestampFormat()}",
+                    $"-to {endTime.VideoTimestampFormat()}",
+                    "-acodec copy",
+                    "-vcodec copy",
                     $"\"{outputFile}\""
                 });
 

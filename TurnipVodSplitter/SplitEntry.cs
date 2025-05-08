@@ -13,9 +13,12 @@ namespace TurnipVodSplitter {
         [ObservableProperty] private bool skipSplit = false;
         [ObservableProperty] private string description = "";
 
-        public string splitName => $"{Player1} vs {Player2}";
+        public string splitName => $"{Player1} vs {Player2} ({Description})";
 
-        public string ffmpegArgsForSplit => $"-vcodec copy -acodec copy -ss {this.SplitStart.VideoTimestampFormat()} -to {this.SplitEnd.VideoTimestampFormat()}";
+        public bool Validate() {
+            if (SplitEnd <= SplitStart) return false;
+            return true;
+        }
     }
 
     public sealed class SplitEntryFieldMap : ClassMap<SplitEntry> {
