@@ -57,5 +57,17 @@ namespace TurnipVodSplitter.Properties {
                 this["recentVods"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string lastFfmpegArgs {
+            get {
+                return ((string)(this["lastFfmpegArgs"]));
+            }
+            set {
+                this["lastFfmpegArgs"] = value;
+            }
+        }
     }
 }

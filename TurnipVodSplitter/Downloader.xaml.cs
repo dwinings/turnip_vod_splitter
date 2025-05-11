@@ -140,7 +140,7 @@ namespace TurnipVodSplitter {
         }
 
         private static readonly string _appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), CompanyName);
-        private static readonly string _downloadPath = @"https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip";
+        private static readonly string _downloadPath = @"https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
         public static readonly string FFMPEG_PATH = Path.Combine(Downloader._appData, "ffmpeg.exe");
 
         private static string CompanyName {

@@ -32,6 +32,10 @@ namespace TurnipVodSplitter {
                     Debug.WriteLine(e.FormattedLog);
                 }
             };
+
+            this.EncounteredError += (s, e) => {
+                Debug.WriteLine($"VlcPlayer encountered an error :{this.libvlc.LastLibVLCError}");
+            };
         }
 
         public TimeSpan PositionTs {

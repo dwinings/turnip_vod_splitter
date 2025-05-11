@@ -28,7 +28,10 @@
             <Setter Property="Margin" Value="0,5" />
         </Style>
 
+        <sys:Double x:Key="inlineContentRowHeightBiggerDbl">60</sys:Double>
+        <GridLength x:Key="inlineContentRowHeightBigger">60</GridLength>
         <GridLength x:Key="inlineContentRowHeight">45</GridLength>
+        <sys:Double x:Key="inlineContentRowHeightDbl">45</sys:Double>
         <sys:Double x:Key="standardButtonWidth">35</sys:Double>
     </Window.Resources>
 
@@ -186,9 +189,10 @@
                     TickFrequency="0.01"
                     d:MouseLeftButtonDown="onVideoScrubberMouseDown"
                     d:MouseLeftButtonUp="onVideoScrubberMouseUp"
+                    PreviewMouseUp="onVideoScrubberPreviewMouseUp"
                     ValueChanged="onVideoScrubberPositionChanged"
                     Thumb.DragStarted="onVideoScrubberDragStarted"
-                    Thumb.DragCompleted="onVideoScrubberDragLeave"
+                    d:Thumb.DragCompleted="onVideoScrubberDragLeave"
                     VerticalAlignment="Center" 
                     IsMoveToPointEnabled="True"
                     />
@@ -203,37 +207,38 @@
 
         <Grid Grid.Row="2">
             <Grid.RowDefinitions>
-                <RowDefinition Height="{StaticResource inlineContentRowHeight}" />
+                <RowDefinition Height="Auto" MaxHeight="{StaticResource inlineContentRowHeightBiggerDbl}" />
                 <RowDefinition Height="1*" />
                 <RowDefinition Height="{StaticResource inlineContentRowHeight}" />
             </Grid.RowDefinitions>
-            <DockPanel Grid.Row="0" LastChildFill="False">
-                <StackPanel Orientation="Horizontal">
-                    <Label VerticalContentAlignment="Center">Event Name</Label>
-                    <TextBox Name="tbEventName" 
+            <DockPanel Grid.Row="0" LastChildFill="True" VerticalAlignment="Center" MaxHeight="{StaticResource inlineContentRowHeightBiggerDbl}">
+                    <StackPanel Orientation="Horizontal">
+                        <Label VerticalContentAlignment="Center">Event Name</Label>
+                        <TextBox Name="tbEventName" 
                              VerticalContentAlignment="Center"
                              VerticalAlignment="Center"
-                             MaxLines="1"
+                             MaxLines="2"
                              TextWrapping="NoWrap" 
                              Margin="10,0" Width="300"
-                             Text="{Binding Path=EventName}"
+                             Text="{Binding Path=Splits.EventName}"
                              GotKeyboardFocus="onTextFieldFocused"
                              LostKeyboardFocus="onTextFieldLostFocus"
                              HorizontalAlignment="Left">
-                    </TextBox>
-                </StackPanel>
+                        </TextBox>
+                    </StackPanel>
 
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <StackPanel.Resources>
-                        <Style TargetType="Button">
-                            <Setter Property="Margin" Value="2,0" />
-                        </Style>
-                    </StackPanel.Resources>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <StackPanel.Resources>
+                            <Style TargetType="Button">
+                                <Setter Property="Height" Value="{StaticResource standardButtonWidth}" />
+                                <Setter Property="Margin" Value="2,0" />
+                            </Style>
+                        </StackPanel.Resources>
                         <Button Name="btnCopySplits"
                                 ToolTip="Save Splits To Clipboard (Youtube chapter format)"
                                 Command="{Binding SaveYoutubeToClipboardCommand}"
                                 Width="{StaticResource standardButtonWidth}">
-                        <fa:FontAwesome Icon="Solid_Clipboard" />
+                            <fa:FontAwesome Icon="Solid_Clipboard" />
                         </Button>
                         <Button Name="btnSaveSplits"
                             ToolTip="Save Splits"
@@ -247,16 +252,35 @@
                             ToolTip="Load Splits"
                             Command="{Binding LoadSplitsCommand}"
                             Width="{StaticResource standardButtonWidth}">
-                        <fa:FontAwesome Icon="Solid_FolderOpen" />
-                    </Button>
-                    
+                            <fa:FontAwesome Icon="Solid_FolderOpen" />
+                        </Button>
 
-                </StackPanel>
-            </DockPanel>
+
+                    </StackPanel>
+                    <DockPanel HorizontalAlignment="Stretch">
+                        <Label VerticalContentAlignment="Center">
+                            <TextBlock>
+                                Codec Args
+                                <Hyperlink NavigateUri="https://trac.ffmpeg.org/wiki/Encode/YouTube" RequestNavigate="NavigateToFfmpegHelp">(?)</Hyperlink>
+                            </TextBlock>
+                        </Label>
+                        <TextBox Name="tbCodecArgs" 
+                             VerticalAlignment="Center"
+                             TextWrapping="Wrap" 
+                             Margin="10,0"
+                             FontFamily="Consolas"
+                             Text="{Binding Path=Splits.FfmpegCodecArgs}"
+                             GotKeyboardFocus="onTextFieldFocused"
+                             LostKeyboardFocus="onTextFieldLostFocus"
+                             HorizontalScrollBarVisibility="Auto"
+                             MinHeight="20"
+                             />
+                    </DockPanel>
+                </DockPanel>
 
             <DataGrid Grid.Row="1"
                       Name="dgSplits"
-                      ItemsSource="{Binding Splits.Splits}"
+                      ItemsSource="{Binding Splits}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       CanUserDeleteRows="True"
@@ -278,12 +302,6 @@
             </DataGrid>
 
             <DockPanel Grid.Row="2" LastChildFill="True">
-                <Label
-                    Margin="0,0,3,0"
-                    VerticalAlignment="Center">
-                    Output Directory
-                </Label>
-
                 <Button Name="btnBeginConvert" 
                         DockPanel.Dock="Right" 
                         IsEnabled="{Binding CanSplitVideo}"
@@ -299,6 +317,16 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
+                <Label/>
+                    <!--
+                <Label
+                    Margin="0,0,3,0"
+                    VerticalAlignment="Center">
+                    Output Directory
+                </Label>
+                -->
+
+                    <!--
                 <Button Name="btnChooseOutputDir"
                         DockPanel.Dock="Right"
                         IsEnabled="True"
@@ -311,7 +339,8 @@
                      IsManipulationEnabled="False" BorderBrush="Black" BorderThickness="1" Padding="5,0,0,0"
                      Text="{Binding Path=OutputDirectory, Mode=OneWay}" Focusable="False"
                      VerticalContentAlignment="Center" />
-            </DockPanel>
+                     -->
+                </DockPanel>
         </Grid>
     </Grid>
     </DockPanel>

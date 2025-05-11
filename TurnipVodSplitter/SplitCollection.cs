@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -12,11 +13,38 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CsvHelper;
 using Microsoft.Win32;
+using TurnipVodSplitter.Properties;
 
 namespace TurnipVodSplitter {
-    public partial class SplitCollection: ObservableObject, INotifyPropertyChanged {
+    public partial class SplitCollection: ObservableObject, IBindingList, IList<SplitEntry>, INotifyPropertyChanged {
+        public static readonly string DEFAULT_ENCODING_ARGS = "-c:v libx264 -preset slow -crf 23 -c:a copy -pix_fmt yuv420p";
         public SplitCollection() {
             this.Splits.Add(new SplitEntry());
+            this.Splits.ListChanged += (s, e) => {
+                this.ListChanged?.Invoke(s, e);
+            };
+
+            this.ffmpegCodecArgs = Properties.Settings.Default.lastFfmpegArgs == "" 
+                ? DEFAULT_ENCODING_ARGS 
+                : Properties.Settings.Default.lastFfmpegArgs;
+        }
+
+        public SplitCollection(IEnumerable<SplitEntry> splitEntries): this() {
+            foreach (var se in splitEntries) {
+                this.splits.Add(se);
+            }
+        }
+
+        [ObservableProperty] private string eventName = "";
+        [ObservableProperty] private string? ffmpegCodecArgs = DEFAULT_ENCODING_ARGS;
+        partial void OnFfmpegCodecArgsChanged(string? value) {
+            Debug.WriteLine($"ffmpeg codec setting to {value}");
+            Properties.Settings.Default.lastFfmpegArgs = value;
+            Properties.Settings.Default.Save();
+
+            if (value == "") {
+                FfmpegCodecArgs = DEFAULT_ENCODING_ARGS;
+            }
         }
 
         [ObservableProperty] 
@@ -85,20 +113,28 @@ namespace TurnipVodSplitter {
 
         public void DeleteSplitAtPoint(TimeSpan splitPoint, bool mergeBefore = false) {
             var idx = GetSplitIndexForTime(splitPoint);
+            DeleteSplitByIdx(idx, mergeBefore=false);
+
+        }
+
+        public bool DeleteSplitByIdx(int idx, bool mergeBefore = false) {
+            bool deleted = false;
             if (idx < 0) {
-                return;
+                return false;
             }
 
             if (Splits.Count == 1) {
-                return;
+                return false;
             }
 
             // If we're the last split, we want to merge with the previous one.
             if (idx == this.Splits.Count - 1) {
                 this.Splits.RemoveAt(idx);
+                deleted = true;
                 this.Splits.Last().SplitEnd = this.MediaLength;
             } else if (idx == 0) {
                 this.Splits.RemoveAt(idx);
+                deleted = true;
                 this.Splits.First().SplitStart = TimeSpan.Zero;
             } else {
                 if (mergeBefore) {
@@ -108,7 +144,14 @@ namespace TurnipVodSplitter {
                 }
 
                 this.Splits.RemoveAt(idx);
+                deleted = true;
             }
+
+            if (this.Splits.Count == 0) {
+                this.Splits.Add(new SplitEntry());
+            }
+
+            return deleted;
         }
 
         public IList<TimeSpan> GetSplitBoundaries() {
@@ -251,5 +294,120 @@ namespace TurnipVodSplitter {
         protected new virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+
+        public IEnumerator<SplitEntry> GetEnumerator() {
+            return Splits.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+        public void Add(SplitEntry item) {
+            this.Splits.Add(item);
+        }
+
+        public int Add(object? value) {
+            return ((IBindingList)this.Splits).Add(value);
+        }
+
+        public void Clear() {
+            this.Splits.Clear();
+            this.Splits.Add(new SplitEntry());
+        }
+
+        public bool Contains(SplitEntry item) {
+            return Splits.Contains(item);
+        }
+
+        public void CopyTo(SplitEntry[] array, int arrayIndex) {
+            this.Splits.CopyTo(array, arrayIndex);
+        }
+
+        public bool Remove(SplitEntry item) {
+            var idx = this.IndexOf(item);
+            return this.DeleteSplitByIdx(idx);
+        }
+
+        public int IndexOf(object? value) {
+            return this.Splits.IndexOf((SplitEntry)value);
+        }
+
+        public void Insert(int index, object? value) {
+            ((IBindingList)Splits).Insert(index, value);
+        }
+
+        public void Remove(object? value) {
+            var idx = this.IndexOf(value);
+            this.DeleteSplitByIdx(idx);
+        }
+
+        public bool Contains(object? item) {
+            return this.Splits.Contains(item);
+        }
+
+        public void CopyTo(Array array, int index) {
+            ((IBindingList)this.Splits).CopyTo(array, index);
+        }
+
+        public int Count => this.Splits.Count;
+        public bool IsSynchronized { get; }
+        public object SyncRoot { get; }
+        public bool IsReadOnly => false;
+        object? IList.this[int index] {
+            get => this[index];
+            set => this[index] = (SplitEntry)value;
+        }
+
+        public int IndexOf(SplitEntry item) {
+            return this.Splits.IndexOf(item);
+        }
+        public void Insert(int index, SplitEntry item) {
+            this.Splits.Insert(index, item);
+        }
+        public void RemoveAt(int index) {
+            this.DeleteSplitByIdx(index);
+        }
+
+        public bool IsFixedSize => false;
+
+        public SplitEntry this[int index] {
+            get => Splits[index];
+            set => Splits[index] = value;
+        }
+
+        public void AddIndex(PropertyDescriptor property) {
+            throw new NotImplementedException();
+        }
+        public object? AddNew() {
+            var split = new SplitEntry();
+            this.Splits.Add(split);
+            return split;
+
+        }
+
+        public void ApplySort(PropertyDescriptor property, ListSortDirection direction) {
+            throw new NotImplementedException();
+        }
+        public int Find(PropertyDescriptor property, object key) {
+            throw new NotImplementedException();
+        }
+        public void RemoveIndex(PropertyDescriptor property) {
+            throw new NotImplementedException();
+        }
+        public void RemoveSort() {
+            throw new NotImplementedException();
+        }
+
+        public bool AllowEdit => true;
+        public bool AllowNew => true;
+        public bool AllowRemove => true;
+        public bool IsSorted => throw new NotSupportedException();
+        public ListSortDirection SortDirection => throw new NotSupportedException();
+        public PropertyDescriptor? SortProperty => throw new NotSupportedException();
+
+        public bool SupportsChangeNotification => true;
+        public bool SupportsSearching => false;
+        public bool SupportsSorting => false;
+        public event ListChangedEventHandler? ListChanged;
     }
 }

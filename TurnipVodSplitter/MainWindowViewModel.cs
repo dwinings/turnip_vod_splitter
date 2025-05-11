@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Input;
@@ -16,12 +17,16 @@ namespace TurnipVodSplitter {
     public partial class MainWindowViewModel : ObservableObject {
         public MainWindowViewModel() {
             this.VlcPlayer.LengthChanged += delegate {
-                this.Splits.MediaLength = TimeSpan.FromMilliseconds(this.VlcPlayer.Length);
+                ThreadPool.QueueUserWorkItem(delegate {
+                    this.Splits.MediaLength = TimeSpan.FromMilliseconds(this.VlcPlayer.Length);
+                });
             };
 
             this.VlcPlayer.TimeChanged += delegate {
-                this.OnPropertyChanged(nameof(CurrentSplit));
-                this.OnPropertyChanged(nameof(CurrentSplitIdx));
+                ThreadPool.QueueUserWorkItem(delegate {
+                    this.OnPropertyChanged(nameof(CurrentSplit));
+                    this.OnPropertyChanged(nameof(CurrentSplitIdx));
+                });
             };
 
         }
@@ -48,14 +53,6 @@ namespace TurnipVodSplitter {
                 Settings.Default.lastVodLoaded = value;
                 Settings.Default.Save();
             }
-        }
-
-        [ObservableProperty]
-        private string? outputDirectory;
-
-        partial void OnOutputDirectoryChanged(string? value) {
-            Settings.Default.lastOutputDirectory = value;
-            Settings.Default.Save();
         }
 
         [ObservableProperty]
