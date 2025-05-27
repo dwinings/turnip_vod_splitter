@@ -4,6 +4,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls.Primitives;
@@ -16,6 +17,7 @@ using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = System.Windows.Forms.OpenFileDialog;
 using System.Threading.Tasks;
+using System.Windows.Interop;
 
 namespace TurnipVodSplitter {
     public partial class MainWindow : Window {
@@ -33,18 +35,20 @@ namespace TurnipVodSplitter {
         public MainWindow(Uri? initialVod = null) {
             InitializeComponent();
 
+
             this._initialVod = initialVod;
 
             // Bind a bunch of things in the viewModel;
-            var debouncedResize = Debounce(resizePlayer);
-            this.vlcVideoView.SizeChanged += delegate { debouncedResize(); };
+            this.vlcVideoView.SizeChanged += delegate { Dispatcher.InvokeAsync(resizePlayer); };
             this.viewModel = this.DataContext as MainWindowViewModel ??
                              throw new InvalidOperationException("Invalid view model type.");
             this.viewModel.PropertyChanged += this.OnViewModelPropertyChanged;
             this.viewModel.VlcPlayer.EnableHardwareDecoding = true;
-            this.viewModel.VlcPlayer.PositionChanged += (o, e) => Dispatcher.Invoke(delegate {
-                onVideoPositionChanged(o, e);
-            });
+            this.viewModel.VlcPlayer.TimeChanged += (o, e) => {
+                lock (this.viewModel.PlayerLock) {
+                    Dispatcher.BeginInvoke(delegate { OnVideoTimeChanged(o, e); });
+                }
+            };
             bindVMCommands(this.viewModel);
 
             string? currentDirectory = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule?.FileName);
@@ -58,12 +62,26 @@ namespace TurnipVodSplitter {
             this.sliderMedia.PreviewMouseDown += delegate { Debug.WriteLine("PreviewMouseDown"); };
             this.sliderMedia.PreviewMouseUp += delegate { Debug.WriteLine("PreviewMouseUp");};
 
+            this.viewModel.Splits.ExtraColumns.CollectionChanged += delegate {
+                OnColumnsChanged();
+            };
+
 
             if (_timer == null) {
                 _timer = new DispatcherTimer();
-                _timer.Tick += (o, e) => this.Dispatcher.Invoke(() => processDeferredScrubTick(o, e));
+                _timer.Tick += (o, e) => this.Dispatcher.BeginInvoke(() => processDeferredScrubTick(o, e));
                 _timer.Interval = new TimeSpan(0, 0, 0, 0, 300);
                 _timer.Start();
+            }
+
+            OnColumnsChanged();
+        }
+
+        private void OnColumnsChanged() {
+            this.dgSplits.Columns.Clear();
+
+            foreach (var col in this.viewModel.Splits.Columns) {
+                this.dgSplits.Columns.Add(col);
             }
         }
 
@@ -74,7 +92,20 @@ namespace TurnipVodSplitter {
             model.ShowAboutWindowCommand = this.ShowAboutWindowCommand;
         }
 
+        [DllImport("user32.dll")]
+        public static extern int GetParent(IntPtr window);
+        [DllImport("user32.dll")]
+        public static extern int SetWindowLong(IntPtr window, int index, int
+            value);
+        [DllImport("user32.dll")]
+        public static extern int GetWindowLong(IntPtr window, int index);
         private void onLoaded(object? sender, RoutedEventArgs e) {
+            var handle = vlcVideoView.MediaPlayer?.Hwnd ?? 0;
+            int origStyle = GetWindowLong(handle, -16);
+            int GWL_STYLE = -16;
+            int WS_CLIPCHILDREN = 0x02000000;
+            SetWindowLong(handle, GWL_STYLE, origStyle | WS_CLIPCHILDREN);
+
             if (!File.Exists(this.viewModel.FfmpegPath)) {
                 var downloader = new Downloader();
                 this.IsEnabled = false;
@@ -92,6 +123,9 @@ namespace TurnipVodSplitter {
             if (this._initialVod != null) {
                 loadVodFile(this._initialVod);
             }
+
+            this.viewModel.AddColumn("player1");
+            this.viewModel.AddColumn("player2");
         }
 
         #region File Selection
@@ -165,43 +199,52 @@ namespace TurnipVodSplitter {
 
             updateVodHistory(uri);
 
-            onMediaParsed = delegate {
-                if (this.viewModel.VlcPlayer.Media == null) { return; }
+            onMediaParsed = (o, e) => {
+                var media = this.viewModel.VlcPlayer.Media;
 
-                this.viewModel.VlcPlayer.Media.ParsedChanged -= onMediaParsed;
+                if (media == null) {
+                    return;
+                }
+                media.ParsedChanged -= onMediaParsed;
 
-                this.Dispatcher.Invoke(() => {
+                this.Dispatcher.BeginInvoke(() => {
                     this.viewModel.VlcPlayer.Volume = 0;
                     this.viewModel.IsMediaLoaded = true;
                     resizePlayer();
 
                     EventHandler<MediaPlayerPositionChangedEventArgs>? onMediaPlayingFirstTime = null;
                     onMediaPlayingFirstTime = delegate {
-                        ThreadPool.QueueUserWorkItem(delegate {
+                        lock (this.viewModel.PlayerLock)
+                        {
                             this.viewModel.VlcPlayer.SetPause(true);
                             this.viewModel.VlcPlayer.PositionChanged -= onMediaPlayingFirstTime;
-                        });
+                        }
                     };
 
-                    ThreadPool.QueueUserWorkItem(delegate {
-                        if (autoplay) {
+                    lock (this.viewModel.PlayerLock)
+                    {
+                        if (autoplay)
+                        {
                             this._isPaused = false;
-                        } else {
+                        }
+                        else
+                        {
                             this.viewModel.VlcPlayer.PositionChanged += onMediaPlayingFirstTime;
                             this._isPaused = true;
                         }
+
                         this.viewModel.VlcPlayer.Play();
-                    });
+                    }
                 });
             };
 
-            onMediaChanged = delegate {
+            onMediaChanged = async (o, e) => {
                 this.IsEnabled = true;
                 this.viewModel.VlcPlayer.MediaChanged -= onMediaChanged;
-                var media = this.viewModel.VlcPlayer.Media;
-                if (media == null) { return; }
+                var media = e.Media;
                 media.ParsedChanged += onMediaParsed;
-                media.Parse();
+                media.DurationChanged += (o, e) => { this.viewModel.MediaDuration = e.Duration; };
+                await media.Parse();
             };
             
             this.viewModel.MediaContentPath = Uri.UnescapeDataString(uri.AbsolutePath);
@@ -209,8 +252,8 @@ namespace TurnipVodSplitter {
             this.IsEnabled = false;
             this.viewModel.VlcPlayer.Media?.Dispose();
             this.viewModel.VlcPlayer.Media = new Media(
-                this.viewModel.VlcPlayer.libvlc,
-                uri, "--start-paused", "--input-fast-seek");
+                this.viewModel.VlcPlayer.libvlc, uri, "--start-paused", "--input-fast-seek"
+            );
 
         }
 
@@ -242,6 +285,11 @@ namespace TurnipVodSplitter {
             this.viewModel.VlcPlayer.SetPause(true);
             this._isPaused = true;
 
+            if (this.viewModel.MediaContentPath == null) {
+                Debug.WriteLine("MediaContentPath is null?!");
+                return;
+            }
+
             var converterWindow = new ConverterWindow(
                 this.viewModel.FfmpegPath,
                 this.viewModel.Splits,
@@ -260,7 +308,7 @@ namespace TurnipVodSplitter {
 
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs propertyChangedEventArgs) {
             // Maybe we should enable the split video button.
-            this.Dispatcher.Invoke(delegate {
+            this.Dispatcher.BeginInvoke(delegate {
                 if (this.viewModel.MediaContentPath == null) {
                     return;
                 }
@@ -292,24 +340,25 @@ namespace TurnipVodSplitter {
                 return;
             }
 
-            switch (this.viewModel.VlcPlayer.State) {
-                case VLCState.Playing:
-                    this._isPaused = true;
-                    this.viewModel.VlcPlayer.SetPause(true);
-                    break;
-                case VLCState.Ended:
-                    loadVodFile(new Uri(this.viewModel.MediaContentPath), true);
-                    break;
-                case VLCState.NothingSpecial:
-                case VLCState.Opening:
-                case VLCState.Buffering:
-                case VLCState.Paused:
-                case VLCState.Stopped:
-                case VLCState.Error:
-                default:
-                    this._isPaused = false;
-                    this.viewModel.VlcPlayer.SetPause(false);
-                    break;
+            lock (this.viewModel.PlayerLock) {
+                switch (this.viewModel.VlcPlayer.State) {
+                    case VLCState.Playing:
+                        this._isPaused = true;
+                        this.viewModel.VlcPlayer.SetPause(true);
+                        break;
+                    case VLCState.Ended:
+                        loadVodFile(new Uri(this.viewModel.MediaContentPath ?? ""), true);
+                        break;
+                    case VLCState.NothingSpecial:
+                    case VLCState.Opening:
+                    case VLCState.Buffering:
+                    case VLCState.Paused:
+                    case VLCState.Error:
+                    default:
+                        this._isPaused = false;
+                        this.viewModel.VlcPlayer.SetPause(false);
+                        break;
+                }
             }
         }
         public Action Debounce(Action func, int milliseconds = 300) {
@@ -320,27 +369,43 @@ namespace TurnipVodSplitter {
                 Task.Delay(milliseconds).ContinueWith(task =>
                 {
                     if (current == last) {
-                        Dispatcher.Invoke(func);
+                        Dispatcher.InvokeAsync(func);
                     }
                     task.Dispose();
                 });
             };
         }
 
+        private Action? _resize_player_cb_state = null;
+        private Action _resize_player_cb {
+            get {
+                if (_resize_player_cb_state != null) return _resize_player_cb_state;
+                _resize_player_cb_state = Debounce(delegate {
+                    lock (this.viewModel.VlcPlayer) {
+                        Debug.WriteLine("resizing...");
+                        uint vidX = 0;
+                        uint vidY = 0;
+                        this.viewModel.VlcPlayer.Size(0, ref vidX, ref vidY);
+
+                        if (vidX == 0 || vidY == 0) {
+                            return;
+                        }
+
+                        double yRatio = this.vlcVideoView.ActualHeight / vidY;
+                        uint actualX = (uint)Math.Floor(vidX * yRatio);
+                        this.vlcVideoView.Width = actualX;
+                    }
+                });
+                return _resize_player_cb_state;
+            }
+        }
+
         private void resizePlayer() {
-            if (!(this.viewModel.VlcPlayer.Media?.IsParsed ?? false)) { return; }
+            if (!this.viewModel.IsMediaLoaded) { return; }
 
-            Debounce(delegate {
-                Debug.WriteLine("resizing...");
-                uint vidX = 0;
-                uint vidY = 0;
-                this.viewModel.VlcPlayer.Size(0, ref vidX, ref vidY);
-                if (vidX == 0 || vidY == 0) { return; }
-                double yRatio = this.vlcVideoView.ActualHeight / vidY;
-                uint actualX = (uint)Math.Floor(vidX * yRatio);
-                this.vlcVideoView.Width = actualX;
-            })();
-
+            Dispatcher.BeginInvoke(delegate {
+                _resize_player_cb();
+            });
         }
 
 
@@ -356,31 +421,46 @@ namespace TurnipVodSplitter {
             var scrub = this._trynaScrub;
             this._trynaScrub = null;
             this._seeking = true;
+            this._scrollsSinceLastSeekFinished = 0;
 
-            this.viewModel.VlcPlayer.SeekTo(scrub.position);
-            if (scrub.dragEnded) {
-                this.viewModel.VlcPlayer.SetPause(_isPaused);
+            lock (this.viewModel.PlayerLock) {
+                this.viewModel.VlcPlayer.SeekTo(scrub.position, delegate {
+                    Debug.WriteLine("Seek Completed.");
+                    if (scrub.dragEnded) {
+                        // Debug.WriteLine($"Setting paused to _isPaused = {_isPaused}");
+                        this.viewModel.VlcPlayer.SetPause(_isPaused);
+                    }
+                    this._seeking = false;
+                });
             }
-            this._seeking = false;
         }
 
 
-        private void onVideoPositionChanged(object? sender, MediaPlayerPositionChangedEventArgs e) {
+        private void OnVideoTimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e) {
             if (this._trynaScrub == null && !this._seeking) {
-                this.sliderMedia.ValueChanged -= onVideoScrubberPositionChanged;
-                this.sliderMedia.Value = this.viewModel.VlcPlayer.Position;
-                this.sliderMedia.ValueChanged += onVideoScrubberPositionChanged;
+                // Debug.WriteLine($"Position Changed from media player {e.Time}");
+                UpdateScrubberDisplayPosition(e.Time);
             }
         }
 
+        private void UpdateScrubberDisplayPosition(long ts) {
+                this.sliderMedia.ValueChanged -= onVideoScrubberPositionChanged;
+                this.sliderMedia.Value = (double)((double)ts / (double)this.viewModel.MediaDuration);
+                this.sliderMedia.ValueChanged += onVideoScrubberPositionChanged;
+        }
 
         private void endVideoScrubberDrag() {
-            this.viewModel.VlcPlayer.SetPause(true);
+            lock (this.viewModel.PlayerLock) {
+                this.viewModel.VlcPlayer.SetPause(true);
+            }
+
             scrubNow(true);
         }
 
         private void startVideoScrubberDrag() {
-            this.viewModel.VlcPlayer.SetPause(true);
+            lock (this.viewModel.PlayerLock) {
+                this.viewModel.VlcPlayer.SetPause(true);
+            }
         }
 
 
@@ -396,8 +476,9 @@ namespace TurnipVodSplitter {
         }
 
         private void scrubNow(bool endDrag = false) {
-            var len = this.viewModel.VlcPlayer.Length;
+            var len = this.viewModel.MediaDuration;
             var ratio = this.sliderMedia.Value;
+
 
             // Elaborate L + ratio joke
             this._trynaScrub = new ScrubAttempt((long)(Math.Floor(len * ratio)), endDrag);
@@ -413,7 +494,6 @@ namespace TurnipVodSplitter {
         }
         #endregion
 
-
         [RelayCommand]
         void ShowAboutWindow() {
             var aboutWindow = new AboutWindow();
@@ -423,5 +503,28 @@ namespace TurnipVodSplitter {
             aboutWindow.ShowDialog();
             this.IsEnabled = true;
         }
+
+
+        private int _scrollsSinceLastSeekFinished = 0;
+        private const uint MILLIS_PER_MOUSEWHEEL = 3000;
+        private void OnVideoScrubberMouseWheel(object sender, MouseWheelEventArgs e) {
+            var len = this.viewModel.VlcPlayer.Length;
+            var ratio = this.sliderMedia.Value;
+            var currentTs = (long)(Math.Floor(len * ratio));
+
+            if (e.Delta > 0 /* scroll up means go back */) {
+                _scrollsSinceLastSeekFinished -= 1;
+
+            } else {
+                _scrollsSinceLastSeekFinished += 1;
+            }
+
+            var newTs = currentTs + (MILLIS_PER_MOUSEWHEEL * _scrollsSinceLastSeekFinished);
+            newTs = Math.Max(0, newTs);
+            newTs = Math.Min(len, newTs);
+            this._trynaScrub = new ScrubAttempt(newTs, true);
+            UpdateScrubberDisplayPosition(newTs);
+        }
+
     }
 }

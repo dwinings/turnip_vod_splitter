@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Windows.Threading;
 using LibVLCSharp.Shared;
 
 namespace TurnipVodSplitter {
@@ -11,7 +13,8 @@ namespace TurnipVodSplitter {
 
         public VlcMediaPlayer() : this(new LibVLC(
             "--repeat",
-            "--avcodec-threads=1"
+            "--avcodec-threads=4",
+            "--input-fast-seek"
             )) {
         }
 
@@ -21,11 +24,30 @@ namespace TurnipVodSplitter {
             this.LengthChanged += (s, e) => OnPropertyChanged("Length");
             this.TimeChanged += (s, e) => OnPropertyChanged("Time");
             this.MediaChanged += (s, e) => OnPropertyChanged("Media");
-            this.Playing += (s, e) => OnPropertyChanged("State");
-            this.Paused += (s, e) => OnPropertyChanged("State");
-            this.EndReached += delegate { OnPropertyChanged("State"); };
-            this.EnableHardwareDecoding = true;
-            this.FileCaching = 60000;
+
+            this.Buffering += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Buffering));
+            this.Playing += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Playing));
+            this.Paused += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Paused));
+            this.Stopped += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Stopped));
+            this.EndReached += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Ended));
+            this.NothingSpecial += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.NothingSpecial));
+            this.Opening += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Opening));
+            this.EncounteredError += (s, e) => this.StateChanged?.Invoke(this, new(VLCState.Error));
+
+            this.Corked += (s, e) => Debug.WriteLine($"Media player corked: {e}");
+            this.Uncorked += (s, e) => Debug.WriteLine($"Media player Uncorked {e}");
+            this.SeekableChanged += (s, e) => Debug.WriteLine($"Media player seekable changed: {e.Seekable}");
+
+            this.StateChanged += (s, e) => {
+                Debug.WriteLine($"Player is now in state {e.State}");
+            };
+
+            this.EnableHardwareDecoding = false;
+            this.FileCaching = 0;
+
+            this.StateChanged += (o, e) => {
+                /* Debug.WriteLine($"State changed to {e.State} on thread {Thread.CurrentThread.ManagedThreadId}");*/
+            };
 
             this.libvlc.Log += (s, e) => {
                 if (e.Level >= LogLevel.Notice) {
@@ -51,6 +73,28 @@ namespace TurnipVodSplitter {
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        public class StateChangedEventArgs(VLCState state) : EventArgs {
+            public virtual VLCState State => state;
+        }
+        public delegate void StateChangedEventHandler(object sender, StateChangedEventArgs args);
+        public event StateChangedEventHandler? StateChanged;
+
+        public void SeekTo(TimeSpan time, Action callbackAction) {
+            var targetTime = (long)time.TotalMilliseconds;
+            EventHandler<MediaPlayerTimeChangedEventArgs>? tempTimeChangedHandler = null;
+            tempTimeChangedHandler = (s, e) => {
+                if ((e.Time - targetTime) < 300 /* ms */) {
+                    this.TimeChanged -= tempTimeChangedHandler;
+                    this.SetPause(true);
+                    callbackAction.Invoke();
+                }
+            };
+
+            this.TimeChanged += tempTimeChangedHandler;
+            this.SetPause(false);
+            base.SeekTo(time);
+        }
+
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null) {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -61,5 +105,7 @@ namespace TurnipVodSplitter {
             OnPropertyChanged(propertyName);
             return true;
         }
+
     }
+
 }

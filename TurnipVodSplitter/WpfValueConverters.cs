@@ -8,7 +8,7 @@ namespace TurnipVodSplitter.WpfValueConverters {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
             VLCState vlcState = (VLCState)value;
 
-            if (vlcState is VLCState.Paused or VLCState.Stopped or VLCState.Ended or VLCState.NothingSpecial) {
+            if (vlcState is VLCState.Paused or VLCState.Stopped or VLCState.NothingSpecial) {
                 return "Solid_Play";
             } else {
                 return "Solid_Pause";

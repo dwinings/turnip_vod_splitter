@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -9,34 +10,88 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
+using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CsvHelper;
-using Microsoft.Win32;
-using TurnipVodSplitter.Properties;
+using CsvHelper.Configuration;
+using TurnipVodSplitter.WpfValueConverters;
+using Binding = System.Windows.Data.Binding;
 
 namespace TurnipVodSplitter {
-    public partial class SplitCollection: ObservableObject, IBindingList, IList<SplitEntry>, INotifyPropertyChanged {
-        public static readonly string DEFAULT_ENCODING_ARGS = "-c:v libx264 -preset slow -crf 23 -c:a copy -pix_fmt yuv420p";
+    public partial class SplitCollection : ObservableObject, IBindingList, IList<SplitEntry>, INotifyPropertyChanged {
+        public static readonly string DEFAULT_ENCODING_ARGS =
+            "-c:v libx264 -preset slow -crf 23 -c:a copy -pix_fmt yuv420p";
+
         public SplitCollection() {
             this.Splits.Add(new SplitEntry());
-            this.Splits.ListChanged += (s, e) => {
-                this.ListChanged?.Invoke(s, e);
-            };
+            this.Splits.ListChanged += (s, e) => { this.ListChanged?.Invoke(s, e); };
 
-            this.ffmpegCodecArgs = Properties.Settings.Default.lastFfmpegArgs == "" 
-                ? DEFAULT_ENCODING_ARGS 
+            this.ffmpegCodecArgs = Properties.Settings.Default.lastFfmpegArgs == ""
+                ? DEFAULT_ENCODING_ARGS
                 : Properties.Settings.Default.lastFfmpegArgs;
+
+            this.staticColumns.Add(
+                new DataGridTextColumn {
+                    Header = "Split Start",
+                    MinWidth = 110,
+                    CanUserReorder = false,
+                    IsReadOnly = true,
+                    Binding = new Binding("SplitStart") {
+                        Converter = new ConvertTimeSpan(),
+                    }
+                }
+            );
+            this.staticColumns.Add(
+                new DataGridTextColumn {
+                    Header = "Split End",
+                    MinWidth = 110,
+                    CanUserReorder = false,
+                    IsReadOnly = true,
+                    Binding = new Binding("SplitEnd") {
+                        Converter = new ConvertTimeSpan(),
+                    }
+                }
+            );
+            this.staticColumns.Add(
+                new DataGridCheckBoxColumn {
+                    Header = "Skip?",
+                    CanUserReorder = false,
+                    Binding = new Binding("SkipSplit")
+                }
+            );
+            this.staticColumns.Add(
+                new DataGridTextColumn {
+                    Header = "Description",
+                    CanUserReorder = false,
+                    MinWidth = 110,
+                    Binding = new Binding("Description")
+                }
+            );
+
+            SyncRoot = new object();
         }
 
-        public SplitCollection(IEnumerable<SplitEntry> splitEntries): this() {
+        public SplitCollection(IEnumerable<SplitEntry> splitEntries) : this() {
             foreach (var se in splitEntries) {
                 this.splits.Add(se);
             }
         }
 
-        [ObservableProperty] private string eventName = "";
+        [ObservableProperty] private string filenameFormat = "{index} - ({start}) {desc}";
         [ObservableProperty] private string? ffmpegCodecArgs = DEFAULT_ENCODING_ARGS;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Columns))]
+        private ObservableCollection<DataGridColumn> staticColumns = [];
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(Columns))]
+        private ObservableCollection<DataGridColumn> extraColumns = [];
+
+        public IEnumerable<DataGridColumn> Columns {
+            get => StaticColumns.Concat(ExtraColumns);
+            set { }
+    }
+
         partial void OnFfmpegCodecArgsChanged(string? value) {
             Debug.WriteLine($"ffmpeg codec setting to {value}");
             Properties.Settings.Default.lastFfmpegArgs = value;
@@ -47,7 +102,7 @@ namespace TurnipVodSplitter {
             }
         }
 
-        [ObservableProperty] 
+        [ObservableProperty]
         private BindingList<SplitEntry> splits = [];
 
         private TimeSpan mediaLength = TimeSpan.Zero;
@@ -56,9 +111,11 @@ namespace TurnipVodSplitter {
             get => mediaLength;
             set {
                 var lastSplit = this.Splits.LastOrDefault();
+
                 if (lastSplit != null) {
                     lastSplit.SplitEnd = value;
                 }
+
                 mediaLength = value;
                 this.OnPropertyChanged();
             }
@@ -67,15 +124,18 @@ namespace TurnipVodSplitter {
         public int GetSplitIndexForTime(TimeSpan splitPoint) {
             for (int i = 0; i < this.Splits.Count; i++) {
                 var split = this.Splits[i];
+
                 if (split.SplitStart <= splitPoint && splitPoint <= split.SplitEnd) {
                     return i;
                 }
             }
+
             return -1;
         }
 
         public SplitEntry? At(TimeSpan pos) {
             var idx = GetSplitIndexForTime(pos);
+
             if (idx < 0) {
                 return null;
             }
@@ -113,12 +173,13 @@ namespace TurnipVodSplitter {
 
         public void DeleteSplitAtPoint(TimeSpan splitPoint, bool mergeBefore = false) {
             var idx = GetSplitIndexForTime(splitPoint);
-            DeleteSplitByIdx(idx, mergeBefore=false);
+            DeleteSplitByIdx(idx, mergeBefore = false);
 
         }
 
         public bool DeleteSplitByIdx(int idx, bool mergeBefore = false) {
             bool deleted = false;
+
             if (idx < 0) {
                 return false;
             }
@@ -156,6 +217,7 @@ namespace TurnipVodSplitter {
 
         public IList<TimeSpan> GetSplitBoundaries() {
             var set = new SortedSet<TimeSpan>();
+
             foreach (var split in this.Splits) {
                 set.Add(split.SplitStart);
                 set.Add(split.SplitEnd);
@@ -164,19 +226,16 @@ namespace TurnipVodSplitter {
             return set.ToList();
         }
 
-        public bool InLastSplit(TimeSpan pos) {
-            return this.GetSplitIndexForTime(pos) == (this.Splits.Count - 1);
-        }
-        public bool InFirstSplit(TimeSpan pos) {
-            return this.GetSplitIndexForTime(pos) == (this.Splits.Count - 1);
-        }
+        public bool InLastSplit(TimeSpan pos) { return this.GetSplitIndexForTime(pos) == (this.Splits.Count - 1); }
+        public bool InFirstSplit(TimeSpan pos) { return this.GetSplitIndexForTime(pos) == (this.Splits.Count - 1); }
 
         public void Normalize() {
             // Go backward so we don't fuck up the indices by adding to spots before our iteration point.
             var maxLen = this.Splits.Count;
-            for (int i = maxLen-1; i >= 0; i--) {
+
+            for (int i = maxLen - 1; i >= 0; i--) {
                 var thisSplit = this.Splits[i];
-                var lastSplit = (i - 1 >= 0) ? this.Splits[i - 1] : null; 
+                var lastSplit = (i - 1 >= 0) ? this.Splits[i - 1] : null;
 
                 if (thisSplit.SplitEnd < thisSplit.SplitStart) {
                     thisSplit.SplitEnd = thisSplit.SplitStart;
@@ -186,10 +245,10 @@ namespace TurnipVodSplitter {
                     if (lastSplit.SplitEnd < thisSplit.SplitStart) {
                         // Gap
                         this.Splits.Insert(i, new() {
-                            SplitStart=lastSplit.SplitEnd,
-                            SplitEnd=thisSplit.SplitStart,
-                            Description="nothing",
-                            SkipSplit=true
+                            SplitStart = lastSplit.SplitEnd,
+                            SplitEnd = thisSplit.SplitStart,
+                            Description = "nothing",
+                            SkipSplit = true
                         });
                     } else if (lastSplit.SplitEnd > thisSplit.SplitStart) {
                         // Overlap
@@ -198,7 +257,7 @@ namespace TurnipVodSplitter {
                 } else if (thisSplit.SplitStart != TimeSpan.Zero) {
                     // Fill in gap from zero to first split
                     this.Splits.Insert(0, new() {
-                        SplitStart=TimeSpan.Zero,
+                        SplitStart = TimeSpan.Zero,
                         SplitEnd = thisSplit.SplitStart,
                         Description = "nothing",
                         SkipSplit = true
@@ -223,41 +282,49 @@ namespace TurnipVodSplitter {
 
         public bool Validate() {
             bool foundFailure = false;
+
             if (this.Splits[0].SplitStart != TimeSpan.Zero) {
                 foundFailure = true;
-                Debug.WriteLine($"WARNING: First split @ {this.Splits[0].SplitStart.VideoTimestampFormat()} starts after zero.");
-            };
+                Debug.WriteLine(
+                    $"WARNING: First split @ {this.Splits[0].SplitStart.VideoTimestampFormat()} starts after zero.");
+            }
+
+            ;
 
             if (this.Splits.Last().SplitEnd != MediaLength) {
                 foundFailure = true;
-                Debug.WriteLine($"WARNING: Last split ends after media end {this.Splits[0].SplitEnd.VideoTimestampFormat()} > {MediaLength.VideoTimestampFormat()}");
+                Debug.WriteLine(
+                    $"WARNING: Last split ends after media end {this.Splits[0].SplitEnd.VideoTimestampFormat()} > {MediaLength.VideoTimestampFormat()}");
             }
 
             for (int i = 0; i < this.Splits.Count; i++) {
                 var cur = this.Splits[i];
-                var nxt = i < this.Splits.Count-1 ? this.Splits[i + 1] : null;
+                var nxt = i < this.Splits.Count - 1 ? this.Splits[i + 1] : null;
 
                 if (nxt != null && cur.SplitEnd < nxt.SplitStart) {
                     foundFailure = true;
-                    Debug.WriteLine($"WARNING: Gap between splits found between {cur.SplitEnd.VideoTimestampFormat()} and {nxt.SplitStart.VideoTimestampFormat()}");
+                    Debug.WriteLine(
+                        $"WARNING: Gap between splits found between {cur.SplitEnd.VideoTimestampFormat()} and {nxt.SplitStart.VideoTimestampFormat()}");
                 }
 
                 if (cur.SplitStart > cur.SplitEnd) {
                     foundFailure = true;
-                    Debug.WriteLine($"WARNING: Split with negative length found {cur.SplitStart.VideoTimestampFormat()} to {cur.SplitEnd.VideoTimestampFormat()}");
+                    Debug.WriteLine(
+                        $"WARNING: Split with negative length found {cur.SplitStart.VideoTimestampFormat()} to {cur.SplitEnd.VideoTimestampFormat()}");
                 }
             }
 
             return !foundFailure;
         }
 
-        public String YoutubeChapterFormat() {
+        public String YoutubeChapterFormat(string format) {
             this.Normalize();
             this.Validate();
             StringBuilder builder = new();
 
             foreach (var s in this.Splits) {
-                builder.AppendFormat("{0} - {1} vs {2} {3}\n", s.SplitStart.VideoTimestampFormat(), s.Player1, s.Player2, s.Description);
+                builder.AppendFormat("{0} - {3}\n", s.SplitStart.VideoTimestampFormat(),
+                    s.Description);
             }
 
             return builder.ToString();
@@ -269,7 +336,7 @@ namespace TurnipVodSplitter {
 
             StreamWriter writer = new(outputStream);
             await using var csvWriter = new CsvWriter(writer, CultureInfo.InvariantCulture);
-            csvWriter.Context.RegisterClassMap(new SplitEntryFieldMap());
+            csvWriter.Context.RegisterClassMap(SplitEntryFieldMap);
             await csvWriter.WriteRecordsAsync(this.Splits);
             await csvWriter.FlushAsync();
         }
@@ -277,10 +344,35 @@ namespace TurnipVodSplitter {
         public async Task LoadFromFile(Stream inputStream) {
             StreamReader streamReader = new StreamReader(inputStream);
             using var csvReader = new CsvReader(streamReader, CultureInfo.InvariantCulture);
-            csvReader.Context.RegisterClassMap(new SplitEntryFieldMap());
+
+            await csvReader.ReadAsync();
+            if (!csvReader.ReadHeader()) {
+                throw new Exception("malformed file no header row.");
+            }
 
             this.Splits.Clear();
-            await foreach (var split in csvReader.GetRecordsAsync<SplitEntry>()) {
+            this.ExtraColumns.Clear();
+
+            List<string> headers = [];
+            foreach (var header in csvReader.HeaderRecord ?? []) {
+                if (!SplitEntry.BUILTIN_FIELDS.Contains(header)) {
+                    headers.Add(header);
+                    this.AddProperty(header);
+                }
+            }
+
+            while (await csvReader.ReadAsync()) {
+                var split = new SplitEntry {
+                    SplitStart = csvReader.GetField<TimeSpan>("SplitStart"),
+                    SplitEnd = csvReader.GetField<TimeSpan>("SplitEnd"),
+                    SkipSplit = csvReader.GetField<bool>("SkipSplit"),
+                    Description = csvReader.GetField<string>("Description") ?? "",
+                };
+
+                foreach (var header in headers) {
+                    split[header] = csvReader.GetField<string>(header) ?? "";
+                }
+
                 this.Splits.Add(split);
             }
 
@@ -288,6 +380,220 @@ namespace TurnipVodSplitter {
                 this.Splits.Add(new SplitEntry());
             }
         }
+
+        public void AddProperty(string? name = null) {
+            var extraColsCount = ExtraColumns.Count;
+
+            string newColName = name ?? $"col {extraColsCount + 1}";
+
+            if (HasProperty(newColName)) {
+                Debug.WriteLine("Can't add duplicate property!");
+                return;
+            }
+
+            foreach (var split in this.Splits) {
+                split.ExtraProperties.Add(new TextProperty(newColName, ""));
+            }
+
+            ExtraColumns.Add(new DataGridTextColumn {
+                Header = newColName,
+                MinWidth = 110,
+                CanUserSort = false,
+                Binding = new Binding($"[{newColName}]")
+            });
+
+            this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Columns"));
+        }
+
+        public bool HasProperty(string name) {
+            return GetProperty(name) != null;
+        }
+
+        public DataGridColumn? GetProperty(string name) {
+            return ExtraColumns.FirstOrDefault(c =>
+                SplitEntry.PropNormalize(c.Header as string ?? "")
+                    .Equals(SplitEntry.PropNormalize(name))
+            );
+        }
+
+        public void RenameProperty(string currentName, string newName) {
+            throw new NotImplementedException();
+        }
+
+        public void DeleteProperty(string propertyName) {
+            var col = this.ExtraColumns.FirstOrDefault(c => c.Header.Equals(propertyName));
+
+            if (col != null) {
+                this.ExtraColumns.Remove(col);
+            }
+        }
+
+
+        private void SetColumnsFromCsvHeader(string[] csvHeader) {
+            int baseIdx = StaticColumns.Count;
+
+            if (csvHeader.Length <= 4) {
+                ExtraColumns.Clear();
+                return;
+            }
+
+
+            for (int i = baseIdx; i < csvHeader.Length; i++) {
+                ExtraColumns.Add(new DataGridTextColumn {
+                    MinWidth = 110,
+                    Header = csvHeader[i],
+                    CanUserSort = false,
+                    CanUserReorder = true,
+                    Binding = new Binding($"[{csvHeader[i]}]")
+                });
+            }
+        }
+
+        private void ReconcileColumnsWithSplits() {
+
+
+        }
+
+        public ClassMap<SplitEntry> SplitEntryFieldMap {
+            get {
+                var mapType = typeof(DefaultClassMap<>).MakeGenericType(typeof(SplitEntry));
+                var map = (ClassMap<SplitEntry>)ObjectResolver.Current.Resolve(mapType);
+
+                int baseIdx = 0;
+                map.Map(m => m.SplitStart).Index(baseIdx++);
+                map.Map(m => m.SplitEnd).Index(baseIdx++);
+                map.Map(m => m.SkipSplit).Index(baseIdx++);
+                map.Map(m => m.Description).Index(baseIdx++);
+
+                int extraIdx = 0;
+                foreach (var col in this.ExtraColumns) {
+                    string header = SplitEntry.PropNormalize(col.Header as string ?? "");
+
+                    var mm = new CsvHelper.Configuration.MemberMap<SplitEntry, string>(null);
+                    mm
+                        .Convert(args => args.Value[header])
+                        .Index(baseIdx + extraIdx)
+                        .Name(header);
+                    map.MemberMaps.Add(mm);
+
+                    extraIdx++;
+                }
+
+                return map;
+            }
+        }
+
+        public string? FilenameOf(SplitEntry split) {
+            var format = this.FilenameFormat;
+            int depth = 0;
+            int splitIdx = this.Splits.IndexOf(split);
+
+            if (splitIdx < 0) {
+                throw new Exception("Can't get the index of a SplitEntry that doesn't belong to the collection.");
+            }
+
+            bool seenBackslash = false;
+            bool seenDoubleBackslash = false;
+            bool commonWrite = false;
+            StringBuilder outputBuffer = new();
+            StringBuilder attrNameBuilder = new();
+            var currentBuffer = outputBuffer;
+
+            for (int i = 0; i < format.Length; i++) {
+                var currentChar = format[i];
+
+                if (currentChar == '\\') {
+                    if (seenBackslash) {
+                        seenDoubleBackslash = true;
+                    } else if (seenDoubleBackslash) {
+                        seenDoubleBackslash = false;
+                        currentBuffer.Append(@"\\");
+                        seenBackslash = true;
+                    } else {
+                        seenBackslash = true;
+                    }
+                } else if (currentChar == '{') {
+                    if (seenBackslash) {
+                        commonWrite = true;
+                    } else {
+                        depth += 1;
+
+                        if (depth == 1) {
+                            currentBuffer = attrNameBuilder;
+                        }
+                    }
+
+                } else if (currentChar == '}') {
+                    if (!seenBackslash) {
+                        switch (depth) {
+                            case 0:
+                                // uneven brace close, treat as normal text.
+                                commonWrite = true;
+                                break;
+                            case 1:
+                                // top-level brace close, do the thing.
+                                var attrName = attrNameBuilder.ToString();
+
+                                string? templateValue = attrName switch {
+                                    "idx" => this.Splits.IndexOf(split).ToString(),
+                                    "index" => this.Splits.IndexOf(split).ToString(),
+                                    "description" => split.Description,
+                                    "desc" => split.Description,
+                                    "start" => split.SplitStart.VideoTimestampFormat(),
+                                    "end" => split.SplitEnd.VideoTimestampFormat(),
+                                    _ => split[attrName]
+                                };
+
+                                if (templateValue == null) {
+                                    return null;
+                                }
+
+                                currentBuffer = outputBuffer;
+                                attrNameBuilder.Clear();
+                                outputBuffer.Append(templateValue);
+                                commonWrite = false;
+                                depth -= 1;
+
+                                break;
+                            default:
+                                depth -= 1;
+                                commonWrite = true;
+                                break;
+                        }
+                    }
+                } else {
+                    commonWrite = true;
+                }
+
+                if (commonWrite) {
+                    if (seenDoubleBackslash) {
+                        currentBuffer.Append(@"\\");
+                    }
+
+                    seenBackslash = false;
+                    seenDoubleBackslash = false;
+                    currentBuffer.Append(currentChar);
+                }
+
+                commonWrite = false;
+            }
+
+            if (depth > 0) {
+                return null;
+            }
+
+            return outputBuffer.ToString()
+                .Replace(":", "_")
+                .Replace("/", "_")
+                .Replace(">", "_")
+                .Replace("*", "_")
+                .Replace("?", "_")
+                .Replace(@"\", "_")
+                .Replace("|", "_");
+
+
+        }
+
 
         public new event PropertyChangedEventHandler? PropertyChanged;
 
@@ -329,7 +635,13 @@ namespace TurnipVodSplitter {
         }
 
         public int IndexOf(object? value) {
-            return this.Splits.IndexOf((SplitEntry)value);
+            var val = (SplitEntry?)value;
+
+            if (val == null) {
+                return -1;
+            }
+
+            return this.Splits.IndexOf(val);
         }
 
         public void Insert(int index, object? value) {
@@ -355,7 +667,13 @@ namespace TurnipVodSplitter {
         public bool IsReadOnly => false;
         object? IList.this[int index] {
             get => this[index];
-            set => this[index] = (SplitEntry)value;
+            set {
+                var val = (SplitEntry?) value;
+
+                if (val != null) {
+                    this[index] = val;
+                }
+            }
         }
 
         public int IndexOf(SplitEntry item) {

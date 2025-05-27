@@ -7,7 +7,10 @@
         xmlns:turnip="clr-namespace:TurnipVodSplitter"
         mc:Ignorable="d"
         ResizeMode="NoResize"
-        Title="About" Height="188" Width="530">
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        Title="About" MinHeight="188" MinWidth="530">
 
     <Grid>
         <Grid.RowDefinitions>

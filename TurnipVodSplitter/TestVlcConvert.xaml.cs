@@ -13,8 +13,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using LibVLCSharp;
 using LibVLCSharp.Shared;
-using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 namespace TurnipVodSplitter {
     /// <summary>
@@ -38,13 +38,13 @@ namespace TurnipVodSplitter {
                 }
             };
 
-            var mediaPlayer = new MediaPlayer(libvlc);
+            var mediaPlayer = new LibVLCSharp.Shared.MediaPlayer(libvlc);
             mediaPlayer.PositionChanged +=
                 (s, e) => {
                     Debug.WriteLine($"{e.Position * 100:F0}%");
             };
 
-            var media = new Media(libvlc, this.fileName.Text);
+            var media = new LibVLCSharp.Shared.Media(libvlc, this.fileName.Text);
             var destination = @"""C:\Users\Wisp\test_output3.mp4""";
             var transcodeOpts =
                 @"{vcodec=h265,vb=2048,scale=auto,acodec=mp4a,ab=96,channels=2,samplerate=44100}";
@@ -60,7 +60,7 @@ namespace TurnipVodSplitter {
             media.AddOption(":no-audio");
             media.AddOption(":no-video");
 
-            mediaPlayer.EndReached +=
+            mediaPlayer.Stopped +=
                 delegate {
                     Debug.WriteLine("All done!");
                     ThreadPool.QueueUserWorkItem(delegate {

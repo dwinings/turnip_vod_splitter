@@ -6,7 +6,8 @@
     },
     "AppWithFile": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\Users\\Wisp\\Videos\\2024-12-09 12-34-01.mp4\""
+      "commandLineArgs": "\"C:\\Users\\Wisp\\Videos\\2024-12-09 12-34-01.mp4\"",
+      "nativeDebugging": false
     }
   }
 }

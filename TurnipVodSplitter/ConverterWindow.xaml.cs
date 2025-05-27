@@ -27,14 +27,10 @@ namespace TurnipVodSplitter {
                 new SplitEntry() {
                     SplitStart = TimeSpan.Zero,
                     SplitEnd = TimeSpan.FromSeconds(30),
-                    Player1 = "me",
-                    Player2 = "them"
                 },
                 new SplitEntry() {
                     SplitStart = TimeSpan.FromSeconds(30),
                     SplitEnd = TimeSpan.FromSeconds(60),
-                    Player1 = "me",
-                    Player2 = "them"
                 }
             ]),
             "C:\\Users\\Wisp\\test\\00h00m00s to 00h41m40s treythetrashman 28 Mar 2023.mp4",
@@ -49,7 +45,6 @@ namespace TurnipVodSplitter {
             this._splits = splits;
             this._inputFile = inputFile;
             this._outputDirectory = outputDirectory;
-            this._eventName = splits.EventName;
         }
 
         public void OnLoaded(object? sender, EventArgs args) {
@@ -81,12 +76,11 @@ namespace TurnipVodSplitter {
                     continue;
                 }
                 if (!split.Validate()) {
-                    Debug.WriteLine($"Warning, could not validate split {split.splitName}");
+                    Debug.WriteLine($"Warning, could not validate split {this._splits.FilenameOf(split)}");
                     continue;
                 }
 
-                var outputFile = OutputFile(split.splitName);
-
+                var outputFile = OutputFile(_splits.FilenameOf(split) ?? "");
                 var seekTime = getStartSeekTs(split);
                 var startTime = split.SplitStart - seekTime;
                 var endTime = split.SplitEnd - seekTime;

@@ -7,7 +7,6 @@
         xmlns:turnip="clr-namespace:TurnipVodSplitter"
         xmlns:cv="clr-namespace:TurnipVodSplitter.WpfValueConverters"
         xmlns:vlcwpf="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
-        xmlns:vlc="clr-namespace:LibVLCSharp.Shared;assembly=LibVLCSharp"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:fa="http://schemas.fontawesome.com/icons/"
         mc:Ignorable="d disable"
@@ -40,21 +39,21 @@
         <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding LoadSplitsCommand}"/>
         <KeyBinding Gesture="Ctrl+S" Command="{Binding BeginConvertCommand}"/> 
         <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveSplitsCommand}" />
-        <KeyBinding Gesture="Ctrl+Space" Command="{Binding SplitNowCommand}" />
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding SplitNowCommand}" />
         <KeyBinding Gesture="Ctrl+P" Command="{Binding TogglePlayCommand}" />
     </Window.InputBindings>
     <!-- GridSplitter -->
     <DockPanel Margin="0">
     <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open Video" Command="{Binding LoadVodFileCommand}" 
+                <MenuItem Header="_Open Video..." Command="{Binding LoadVodFileCommand}" 
                           ToolTip="Open a video file for playback." 
                           InputGestureText="Ctrl+O" />
                 <MenuItem Header="_Split Video" 
                           Command="{Binding BeginConvertCommand}" 
                           ToolTip="Break video file into defined chunks." 
                           InputGestureText="Ctrl+S"/>
-                <MenuItem Header="Open S_plits" 
+                <MenuItem Header="Open S_plits..." 
                           Command="{Binding LoadSplitsCommand}" 
                           ToolTip="Open a CSV file containing split data." 
                           InputGestureText="Ctrl+Shift+O"/>
@@ -78,7 +77,19 @@
                 <MenuItem Header="_Split Here" 
                           Command="{Binding SplitNowCommand}" 
                           ToolTip="Add a split at the current time." 
-                          InputGestureText="Ctrl+Space"/>
+                          InputGestureText="Ctrl+W"/>
+                <MenuItem Header="_Add Column..." 
+                          Command="{Binding AddColumnCommand}"
+                        />
+                <MenuItem Header="Delete Column" ItemsSource="{Binding Splits.ExtraColumns}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="{x:Type MenuItem}">
+                            <Setter Property="Header" Value="{Binding Header}"/>
+                            <Setter Property="Command" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=DataContext.DeleteColumnCommand}"/>
+                            <Setter Property="CommandParameter" Value="{Binding .}" />
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
             </MenuItem>
             <MenuItem Header="_Playback">
                 <MenuItem Header="Toggle _Playback" 
@@ -155,7 +166,7 @@
                             Width="{StaticResource standardButtonWidth}"
                             >
                         <fa:FontAwesome 
-                            Icon="{Binding Path=VlcPlayer.State,
+                            Icon="{Binding Path=PlayerState,
                                            Converter={StaticResource PlayPauseFaIcon}}" />
                     </Button>
 
@@ -168,14 +179,14 @@
                     </Button>
                 </StackPanel>
                 <Label Name="labelTotalDuration" DockPanel.Dock="Right"
-                   Content="{Binding Path=VlcPlayer.Length, 
+                   Content="{Binding Path=MediaDuration,
                                      Mode=OneWay, 
                                      Converter={StaticResource LongMsToTime}}"
                    VerticalAlignment="Center" />
 
                 <!-- Left side of the control bar -->
                 <Label Name="labelSeekPos" DockPanel.Dock="Left"
-                   Content="{Binding Path=VlcPlayer.Time, 
+                   Content="{Binding Path=MediaPosition,
                                      Mode=OneWay, 
                                      Converter={StaticResource LongMsToTime}}"
                    HorizontalAlignment="Left"
@@ -193,6 +204,7 @@
                     ValueChanged="onVideoScrubberPositionChanged"
                     Thumb.DragStarted="onVideoScrubberDragStarted"
                     d:Thumb.DragCompleted="onVideoScrubberDragLeave"
+                    MouseWheel="OnVideoScrubberMouseWheel"
                     VerticalAlignment="Center" 
                     IsMoveToPointEnabled="True"
                     />
@@ -213,14 +225,14 @@
             </Grid.RowDefinitions>
             <DockPanel Grid.Row="0" LastChildFill="True" VerticalAlignment="Center" MaxHeight="{StaticResource inlineContentRowHeightBiggerDbl}">
                     <StackPanel Orientation="Horizontal">
-                        <Label VerticalContentAlignment="Center">Event Name</Label>
-                        <TextBox Name="tbEventName" 
+                        <Label VerticalContentAlignment="Center">File Name</Label>
+                        <TextBox Name="tbFilenameFormat" 
                              VerticalContentAlignment="Center"
                              VerticalAlignment="Center"
                              MaxLines="2"
                              TextWrapping="NoWrap" 
                              Margin="10,0" Width="300"
-                             Text="{Binding Path=Splits.EventName}"
+                             Text="{Binding Path=Splits.FilenameFormat}"
                              GotKeyboardFocus="onTextFieldFocused"
                              LostKeyboardFocus="onTextFieldLostFocus"
                              HorizontalAlignment="Left">
@@ -291,14 +303,6 @@
                       CellEditEnding="onTextFieldLostFocus"
                       RowEditEnding="onTextFieldLostFocus"
                       >
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Split Start" MinWidth="110" Binding="{Binding Path=SplitStart, Converter={StaticResource ConvertTimeSpan}}" />
-                    <DataGridTextColumn Header="Split End" MinWidth="110" Binding="{Binding Path=SplitEnd, Converter={StaticResource ConvertTimeSpan}}" />
-                    <DataGridTextColumn Header="P1" MinWidth="110" Binding="{Binding Path=Player1}" />
-                    <DataGridTextColumn Header="P2" MinWidth="110" Binding="{Binding Path=Player2}" />
-                    <DataGridCheckBoxColumn Header="Skip?" Binding="{Binding Path=SkipSplit}"/>
-                    <DataGridTextColumn Header="Description" Width="*"  Binding="{Binding Path=Description}"/>
-                </DataGrid.Columns>
             </DataGrid>
 
             <DockPanel Grid.Row="2" LastChildFill="True">
