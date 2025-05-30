@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Windows.Data;
+using FontAwesome5;
 using LibVLCSharp.Shared;
 
 namespace TurnipVodSplitter.WpfValueConverters {
@@ -44,12 +45,8 @@ namespace TurnipVodSplitter.WpfValueConverters {
 
     internal class ConversionStateSpinType : IValueConverter {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            string? status = value as string;
-            if (status == "converting") {
-                return "True";
-            } else {
-                return "False";
-            }
+            ConversionStatus? status = (ConversionStatus)value;
+            return status == ConversionStatus.InProgress ? "True" : "False";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) {
@@ -59,12 +56,14 @@ namespace TurnipVodSplitter.WpfValueConverters {
 
     internal class ConversionStateIconName : IValueConverter {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture) {
-            string? status = value as string;
+            ConversionStatus? status = (ConversionStatus)value;
             return status switch {
-                "converting" => "Solid_Cog",
-                "succeeded" => "Solid_Check",
-                "failed" => "Solid_Times",
-                _ => ""
+                ConversionStatus.Pending => EFontAwesomeIcon.Solid_HourglassEnd,
+                ConversionStatus.InProgress => EFontAwesomeIcon.Solid_Cog,
+                ConversionStatus.Succeeded=> EFontAwesomeIcon.Solid_Check,
+                ConversionStatus.Failed=> EFontAwesomeIcon.Solid_Times,
+                ConversionStatus.Cancelled => EFontAwesomeIcon.Solid_Times,
+                _ => EFontAwesomeIcon.None
             };
         }
 
