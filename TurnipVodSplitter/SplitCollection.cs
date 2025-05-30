@@ -20,7 +20,7 @@ using Binding = System.Windows.Data.Binding;
 namespace TurnipVodSplitter {
     public partial class SplitCollection : ObservableObject, IBindingList, IList<SplitEntry>, INotifyPropertyChanged {
         public static readonly string DEFAULT_ENCODING_ARGS =
-            "-c:v libx264 -preset slow -crf 23 -c:a copy -pix_fmt yuv420p";
+            "-c:v libx264 -preset veryfast -crf 21 -c:a copy -pix_fmt yuv420p";
 
         public SplitCollection() {
             this.Splits.Add(new SplitEntry());

@@ -295,7 +295,8 @@ namespace TurnipVodSplitter {
                 this.viewModel.Splits,
                 this.viewModel.MediaContentPath,
                 dir,
-                this.viewModel.EventName
+                this.viewModel.EventName,
+                this.viewModel.MaxProcs == 0 ? null : this.viewModel.MaxProcs
             );
 
             this.IsEnabled = false;

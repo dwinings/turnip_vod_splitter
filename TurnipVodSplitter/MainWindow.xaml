@@ -321,6 +321,9 @@
                         </TextBlock>
                     </StackPanel>
                 </Button>
+                <turnip:NumberBox DockPanel.Dock="Right" VerticalAlignment="Stretch" Width="50"  Minimum="0" Maximum="32" 
+                                  Value="{Binding MaxProcs,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"/>
+                <Label DockPanel.Dock="Right" VerticalAlignment="Stretch" VerticalContentAlignment="Center" >Max Processes</Label>
                 <Label/>
                     <!--
                 <Label

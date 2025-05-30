@@ -54,6 +54,9 @@ namespace TurnipVodSplitter {
         [ObservableProperty]
         private long mediaPosition = -1;
 
+        [ObservableProperty]
+        private int maxProcs = 2;
+
         public SplitEntry? CurrentSplit {
             get {
                 return this.Splits.At(this.VlcPlayer.PositionTs);

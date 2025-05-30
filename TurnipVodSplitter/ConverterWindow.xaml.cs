@@ -17,6 +17,7 @@ namespace TurnipVodSplitter {
         private readonly string _outputDirectory;
         private readonly string _eventName = "";
         private readonly SplitCollection _splits;
+        private int? _maxProcs;
         public ObservableCollection<ConversionInfo> conversions { get; } = [];
 
         private static readonly string FFMPEG_BASE_ARGS = "-hide_banner -loglevel info -nostats -y ";
@@ -39,12 +40,13 @@ namespace TurnipVodSplitter {
         ) { }
 
         public ConverterWindow(string ffmpegPath, SplitCollection splits,
-            string inputFile, string outputDirectory, string ffmpegCodecArgs) {
+            string inputFile, string outputDirectory, string ffmpegCodecArgs, int? maxProcs = null) {
             InitializeComponent();
             this._ffmpegPath = ffmpegPath;
             this._splits = splits;
             this._inputFile = inputFile;
             this._outputDirectory = outputDirectory;
+            this._maxProcs = maxProcs;
         }
 
         public void OnLoaded(object? sender, EventArgs args) {
@@ -124,28 +126,35 @@ namespace TurnipVodSplitter {
                     proc = proc,
                     idx = procIdx,
                 };
-
-                proc.Exited += conversion.onFfmpegProcessExited;
-                procIdx += 1;
                 this.conversions.Add(conversion);
-                proc.OutputDataReceived += conversion.onFfmpegProcessCreatedOutput;
-                proc.ErrorDataReceived += conversion.onFfmpegProcessCreatedOutput;
+                procIdx += 1;
 
-                this._outstandingProcs += 1;
-
-                proc.Start();
-                conversion.outputText = $"Started [{this._ffmpegPath} {args}] @ PID {proc.Id}\n";
-                proc.BeginOutputReadLine();
-                proc.BeginErrorReadLine();
-
-                conversion.Succeeded += onConversionSucceeded;
-                conversion.Failed += onConversionFailed;
-
+                if (this._maxProcs == null || (this._outstandingProcs < this._maxProcs)) {
+                    BeginConversion(conversion);
+                }
             }
+
+            tabControl.SelectedIndex = 0;
         }
 
-        public void onConversionSucceeded(object? sender, EventArgs e) {
+        private void BeginConversion(ConversionInfo conversion) {
+            this._outstandingProcs += 1;
+            conversion.Failed += onConversionFailed;
+            conversion.Completed += OnConversionCompleted;
+            conversion.Begin();
+        }
+
+        public void OnConversionCompleted(object? sender, ConversionInfoEventArgs e) {
             this._outstandingProcs -= 1;
+
+            var nextConversion = this.conversions.FirstOrDefault(c => c.status == ConversionStatus.Pending);
+            if (
+                nextConversion != null &&
+                (this._maxProcs != null || this._outstandingProcs < this._maxProcs)
+               )
+            {
+                BeginConversion(nextConversion);
+            }
 
             if (this._outstandingProcs == 0) {
                 onAllConversionsComplete();
@@ -154,11 +163,6 @@ namespace TurnipVodSplitter {
 
         public void onConversionFailed(object? sender, EventArgs e) {
             _hasAnyFailures = true;
-            this._outstandingProcs -= 1;
-
-            if (this._outstandingProcs == 0) {
-                onAllConversionsComplete();
-            }
         }
 
         public void onAllConversionsComplete() {
@@ -167,14 +171,31 @@ namespace TurnipVodSplitter {
 
 
         public void OnCompleteButtonClick(object? sender, EventArgs e) {
+            foreach (var conversion in this.conversions) {
+                conversion.status = ConversionStatus.Cancelled;
+            }
+
+            foreach (var conversion in this.conversions) {
+                conversion.Kill();
+            }
+
             this.Close();
         }
     }
 
+
+    public enum ConversionStatus {
+        Succeeded, Failed, Pending, InProgress, Cancelled
+    }
+
+    public class ConversionInfoEventArgs(ConversionInfo conversion) : EventArgs {
+        public readonly ConversionInfo Conversion = conversion;
+    }
+
     public class ConversionInfo : INotifyPropertyChanged {
-        public event EventHandler? Completed;
-        public event EventHandler? Succeeded;
-        public event EventHandler? Failed;
+        public event EventHandler<ConversionInfoEventArgs>? Completed;
+        public event EventHandler<ConversionInfoEventArgs>? Succeeded;
+        public event EventHandler<ConversionInfoEventArgs>? Failed;
 
         private Process? _proc;
 
@@ -182,6 +203,7 @@ namespace TurnipVodSplitter {
 
         public ConversionInfo(ConverterWindow? window) {
             this._window = window;
+            this.status = ConversionStatus.Pending;
             this.Completed += OnCompleted;
             this.Succeeded += OnSucceeded;
             this.Failed += OnFailed;
@@ -202,10 +224,10 @@ namespace TurnipVodSplitter {
         }
 
         /* converting, succeeded, failed */
-        private string _status = "converting";
+        private ConversionStatus _status = ConversionStatus.Pending;
         private readonly ConverterWindow? _window;
 
-        public string status {
+        public ConversionStatus status {
             get => _status;
             set => this.SetField(ref _status, value);
         }
@@ -218,12 +240,49 @@ namespace TurnipVodSplitter {
             set => SetField(ref _outputText, value);
         }
 
+        public void Begin() {
+            if (proc == null) {
+                throw new Exception("Can't begin a conversion with no proc.");
+            }
+
+            this.proc.Exited += this.onFfmpegProcessExited;
+            this.proc.OutputDataReceived += this.onFfmpegProcessCreatedOutput;
+            this.proc.ErrorDataReceived += this.onFfmpegProcessCreatedOutput;
+
+            this.status = ConversionStatus.InProgress;
+            this.proc.Start();
+            this.outputText = $"Started [\"{proc.StartInfo.FileName}\" {proc.StartInfo.Arguments}] @ PID {proc.Id}\n";
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
+
+        }
+
+        /* Best effort attempt to terminate the process associated with this conversion if any such process exists. */
+        public void Kill() {
+            this.status = ConversionStatus.Cancelled;
+            try {
+                if (!(this.proc?.HasExited ?? true))
+                {
+                    this.proc?.Kill();
+                }
+            }
+            catch (Win32Exception ex) {
+                Debug.WriteLine(ex);
+            }
+            catch (InvalidOperationException ex) {
+                Debug.WriteLine(ex);
+            }
+            catch (NotSupportedException ex) {
+                Debug.WriteLine(ex);
+            }
+        }
+
         #endregion
 
         #region eventhandlers
         public void onFfmpegProcessExited(object? sender, EventArgs e) {
             this._window?.Dispatcher.InvokeAsync(() => {
-                this.Completed?.Invoke(sender, e);
+                this.Completed?.Invoke(sender, new ConversionInfoEventArgs(this));
             });
         }
 
@@ -231,7 +290,7 @@ namespace TurnipVodSplitter {
             this.outputText += $"\t[{proc?.Id:D7}] {dataReceivedEventArgs.Data}\n";
         }
 
-        public void OnCompleted(object? sender, EventArgs e) {
+        public void OnCompleted(object? sender, ConversionInfoEventArgs e) {
             this.outputText += $"\t[{proc?.Id:D7}] Has exited with code {proc?.ExitCode}\n";
             if (proc?.ExitCode != 0) {
                 this.Failed?.Invoke(sender, e);
@@ -241,14 +300,14 @@ namespace TurnipVodSplitter {
             }
         }
 
-        public void OnSucceeded(object? sender, EventArgs e) {
+        public void OnSucceeded(object? sender, ConversionInfoEventArgs e) {
             this.outputText += "\nAll done!";
-            this.status = "succeeded";
+            this.status = ConversionStatus.Succeeded;
         }
 
-        public void OnFailed(object? sender, EventArgs e) {
+        public void OnFailed(object? sender, ConversionInfoEventArgs e) {
             this.outputText += "\nConversion Failed!";
-            this.status = "failed";
+            this.status = ConversionStatus.Failed;
         }
         #endregion
 
