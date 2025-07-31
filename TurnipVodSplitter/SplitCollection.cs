@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -535,8 +536,8 @@ namespace TurnipVodSplitter {
                                 var attrName = attrNameBuilder.ToString();
 
                                 string? templateValue = attrName switch {
-                                    "idx" => this.Splits.IndexOf(split).ToString(),
-                                    "index" => this.Splits.IndexOf(split).ToString(),
+                                    "idx" => this.Splits.Where(s => !s.SkipSplit).ToList().IndexOf(split).ToString(),
+                                    "index" => this.Splits.Where(s => !s.SkipSplit).ToList().IndexOf(split).ToString(),
                                     "description" => split.Description,
                                     "desc" => split.Description,
                                     "start" => split.SplitStart.VideoTimestampFormat(),

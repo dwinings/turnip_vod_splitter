@@ -28,7 +28,9 @@ namespace TurnipVodSplitter {
         };
 
         partial void OnExtraPropertiesChanged(ObservableCollection<TextProperty> value) {
-            OnPropertyChanged("Item[]");
+            foreach (var prop in value) {
+                OnPropertyChanged($"Item[{prop.Name}]");
+            }
         }
 
         [IndexerName("Item")]
@@ -40,12 +42,13 @@ namespace TurnipVodSplitter {
                 var prop = this.ExtraProperties.FirstOrDefault(p => PropNormalize(p.Name).Equals(PropNormalize(propName)));
 
                 if (prop == null) {
-                    this.ExtraProperties.Add(new TextProperty(propName, value ?? ""));
+                    prop = new TextProperty(propName, value ?? "");
+                    this.ExtraProperties.Add(prop);
                 } else {
                     prop.Data = value ?? "";
                 }
 
-                OnPropertyChanged("Item[]");
+                OnPropertyChanged($"Item[{prop.Name}]");
             }
         }
 
